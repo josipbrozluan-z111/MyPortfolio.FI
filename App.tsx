@@ -44,9 +44,24 @@ const App: React.FC = () => {
       content: '',
       createdAt: new Date().toISOString(),
     };
-    setPortfolioData({ entries: [newEntry] });
+    const newPortfolioData = { entries: [newEntry] };
+
+    // Load project into the app state to transition UI immediately
+    setPortfolioData(newPortfolioData);
     setActiveEntryId(newEntry.id);
     setIsProjectLoaded(true);
+
+    // Trigger download of the new project file
+    const dataStr = JSON.stringify(newPortfolioData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.download = 'portfolio-data.json';
+    link.href = url;
+    document.body.appendChild(link); // Required for Firefox compatibility
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleAddNewEntry = () => {
@@ -93,7 +108,9 @@ const App: React.FC = () => {
     const link = document.createElement('a');
     link.download = 'portfolio-data.json';
     link.href = url;
+    document.body.appendChild(link); // For cross-browser compatibility
     link.click();
+    document.body.removeChild(link); // Clean up
     URL.revokeObjectURL(url);
   };
 
