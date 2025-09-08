@@ -1,68 +1,123 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import WelcomePage from './components/WelcomePage';
 import EmptyState from './components/EmptyState';
 import { PortfolioData, PortfolioEntry } from './types';
 
+// Type definition for FileSystemFileHandle, which may not be in all TS lib versions.
+// This ensures our code knows about the API.
+declare global {
+  interface Window {
+    showOpenFilePicker(options?: any): Promise<FileSystemFileHandle[]>;
+    showSaveFilePicker(options?: any): Promise<FileSystemFileHandle>;
+  }
+}
+
 const App: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioData>({ entries: [] });
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
-  const [isProjectLoaded, setIsProjectLoaded] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
 
+  // Debounced auto-save effect
   useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('portfolioData');
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        if (parsedData && parsedData.entries && parsedData.entries.length > 0) {
-            setPortfolioData(parsedData);
-            setActiveEntryId(parsedData.entries[0]?.id || null);
-            setIsProjectLoaded(true);
-        }
+    if (saveStatus !== 'unsaved' || !fileHandle) {
+      return;
+    }
+
+    const handler = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(portfolioData, null, 2));
+        await writable.close();
+        setSaveStatus('saved');
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        alert("Auto-save failed. Your changes might not be saved. Please try exporting your work.");
+        setSaveStatus('unsaved'); // Revert status on failure
       }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-    }
-  }, []);
+    }, 1500); // 1.5-second debounce delay
 
-  useEffect(() => {
-    if (isProjectLoaded) {
-        try {
-            localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
-        } catch (error) {
-            console.error("Failed to save data to localStorage", error);
-        }
-    }
-  }, [portfolioData, isProjectLoaded]);
-
-  const handleCreateNewProject = () => {
-    const newEntry: PortfolioEntry = {
-      id: `entry-${Date.now()}`,
-      title: 'New Entry',
-      content: '',
-      createdAt: new Date().toISOString(),
+    return () => {
+      clearTimeout(handler);
     };
-    const newPortfolioData = { entries: [newEntry] };
+  }, [portfolioData, fileHandle, saveStatus]);
+  
+  // Mark changes as unsaved
+  const updatePortfolioData = (newData: PortfolioData) => {
+    setPortfolioData(newData);
+    if(fileHandle) { // Only set unsaved status if a file is loaded
+      setSaveStatus('unsaved');
+    }
+  }
 
-    // Load project into the app state to transition UI immediately
-    setPortfolioData(newPortfolioData);
-    setActiveEntryId(newEntry.id);
-    setIsProjectLoaded(true);
+  const handleCreateNewProject = async () => {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'portfolio-data.json',
+        types: [{
+          description: 'JSON Files',
+          accept: { 'application/json': ['.json'] },
+        }],
+      });
+      
+      const newEntry: PortfolioEntry = {
+        id: `entry-${Date.now()}`,
+        title: 'New Entry',
+        content: '',
+        createdAt: new Date().toISOString(),
+      };
+      const newPortfolioData = { entries: [newEntry] };
+      
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(newPortfolioData, null, 2));
+      await writable.close();
 
-    // Trigger download of the new project file
-    const dataStr = JSON.stringify(newPortfolioData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.download = 'portfolio-data.json';
-    link.href = url;
-    document.body.appendChild(link); // Required for Firefox compatibility
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      setFileHandle(handle);
+      setPortfolioData(newPortfolioData);
+      setActiveEntryId(newEntry.id);
+      setSaveStatus('saved');
+
+    } catch (error) {
+      if ((error as DOMException).name !== 'AbortError') {
+        console.error("Error creating new project file:", error);
+        alert("Could not create new project file.");
+      }
+    }
   };
+
+  const handleImportProject = async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+         types: [{
+          description: 'JSON Files',
+          accept: { 'application/json': ['.json'] },
+        }],
+        multiple: false,
+      });
+
+      const file = await handle.getFile();
+      const contents = await file.text();
+      const parsedData: PortfolioData = JSON.parse(contents);
+
+       if (parsedData && Array.isArray(parsedData.entries)) {
+          setFileHandle(handle);
+          setPortfolioData(parsedData);
+          setActiveEntryId(parsedData.entries[0]?.id || null);
+          setSaveStatus('saved');
+        } else {
+          throw new Error("Invalid JSON structure.");
+        }
+
+    } catch (error) {
+       if ((error as DOMException).name !== 'AbortError') {
+        console.error("Error importing project:", error);
+        alert("Failed to import file. Please ensure it is a valid portfolio JSON file.");
+      }
+    }
+  }
 
   const handleAddNewEntry = () => {
     const newEntry: PortfolioEntry = {
@@ -71,35 +126,32 @@ const App: React.FC = () => {
       content: '',
       createdAt: new Date().toISOString(),
     };
-    setPortfolioData(prevData => ({
-      ...prevData,
-      entries: [newEntry, ...prevData.entries],
-    }));
+    updatePortfolioData({
+      ...portfolioData,
+      entries: [newEntry, ...portfolioData.entries],
+    });
     setActiveEntryId(newEntry.id);
   };
-
 
   const handleDeleteEntry = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       const updatedEntries = portfolioData.entries.filter(entry => entry.id !== id);
-      setPortfolioData(prevData => ({
-        ...prevData,
+      updatePortfolioData({
+        ...portfolioData,
         entries: updatedEntries,
-      }));
+      });
       if (activeEntryId === id) {
-        setActiveEntryId(updatedEntries.length > 0 ? updatedEntries[0].id : null);
+        setActiveEntryId(updatedEntries[0]?.id || null);
       }
     }
   };
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
-    setPortfolioData(prevData => ({
-      ...prevData,
-      entries: prevData.entries.map(entry =>
-        entry.id === id ? { ...entry, ...updates } : entry
-      ),
-    }));
-  }, []);
+    const newEntries = portfolioData.entries.map(entry =>
+      entry.id === id ? { ...entry, ...updates } : entry
+    );
+    updatePortfolioData({ ...portfolioData, entries: newEntries });
+  }, [portfolioData]);
 
   const handleDownload = () => {
     const dataStr = JSON.stringify(portfolioData, null, 2);
@@ -114,62 +166,21 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleTriggerUpload = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = e.target?.result;
-          if (typeof text === 'string') {
-            const parsedData: PortfolioData = JSON.parse(text);
-            if (parsedData && Array.isArray(parsedData.entries)) {
-              setPortfolioData(parsedData);
-              const newActiveId = parsedData.entries.length > 0 ? parsedData.entries[0].id : null;
-              setActiveEntryId(newActiveId);
-              setIsProjectLoaded(true);
-            } else {
-              throw new Error("Invalid JSON structure.");
-            }
-          }
-        } catch (error) {
-          alert('Failed to import file. Please ensure it is a valid portfolio JSON file.');
-          console.error(error);
-        }
-      };
-      reader.readAsText(file);
-    }
-    event.target.value = '';
-  };
-
   const activeEntry = portfolioData.entries.find(e => e.id === activeEntryId);
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry}/>;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} saveStatus={saveStatus}/>;
     }
     return <EmptyState />;
   }
 
-  if (!isProjectLoaded) {
+  if (!fileHandle) {
     return (
-      <>
-        <WelcomePage 
-            onCreateProject={handleCreateNewProject} 
-            onTriggerUpload={handleTriggerUpload} 
-        />
-        <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleUpload}
-            className="hidden"
-            accept=".json"
-        />
-      </>
+      <WelcomePage 
+          onCreateProject={handleCreateNewProject} 
+          onTriggerUpload={handleImportProject} 
+      />
     );
   }
 
@@ -182,18 +193,11 @@ const App: React.FC = () => {
         onCreateEntry={handleAddNewEntry}
         onDeleteEntry={handleDeleteEntry}
         onDownload={handleDownload}
-        onTriggerUpload={handleTriggerUpload}
+        onTriggerUpload={handleImportProject}
       />
       <main className="flex-1 bg-gray-900">
         {renderMainContent()}
       </main>
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleUpload}
-        className="hidden"
-        accept=".json"
-      />
     </div>
   );
 };

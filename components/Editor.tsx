@@ -6,9 +6,10 @@ interface EditorProps {
   entry: PortfolioEntry;
   onUpdate: (id: string, updates: Partial<PortfolioEntry>) => void;
   onDelete: (id: string) => void;
+  saveStatus: 'unsaved' | 'saving' | 'saved';
 }
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete }) => {
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, saveStatus }) => {
   const [title, setTitle] = useState(entry.title);
   const [content, setContent] = useState(entry.content);
   
@@ -44,6 +45,15 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete }) => {
     });
   };
 
+  const getStatusText = () => {
+    switch(saveStatus) {
+      case 'saving': return 'Saving...';
+      case 'saved': return 'Saved';
+      case 'unsaved': return 'Unsaved changes';
+      default: return '';
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-900 overflow-hidden">
       {/* Editor Header */}
@@ -55,13 +65,18 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete }) => {
           placeholder="Entry Title"
           className="bg-transparent text-xl font-bold w-full focus:outline-none text-white"
         />
-        <button
-          onClick={() => onDelete(entry.id)}
-          className="p-2 rounded-full text-gray-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-          aria-label="Delete entry"
-        >
-          <TrashIcon className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-400 italic w-32 text-right">
+            {getStatusText()}
+          </span>
+          <button
+            onClick={() => onDelete(entry.id)}
+            className="p-2 rounded-full text-gray-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            aria-label="Delete entry"
+          >
+            <TrashIcon className="w-5 h-5" />
+          </button>
+        </div>
       </div>
       
       {/* Main Content Area */}
