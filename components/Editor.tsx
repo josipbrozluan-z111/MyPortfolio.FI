@@ -30,18 +30,94 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, saveStatus }
     };
   }, [title, content, entry.id, entry.title, entry.content, onUpdate]);
   
-  const renderContent = (text: string) => {
-    // Regex to split by markdown image syntax: ![alt](src)
-    const parts = text.split(/(!\[.*?\]\(.*?\))/g);
-    return parts.map((part, index) => {
-      const match = part.match(/!\[(.*?)\]\((.*?)\)/);
-      if (match) {
-        return <img key={index} src={match[2]} alt={match[1]} className="my-4 rounded-lg shadow-lg max-w-full h-auto mx-auto"/>;
+  const renderMarkdown = (markdown: string) => {
+    if (!markdown) return null;
+
+    const applyInlineFormatting = (text: string) => {
+      let formattedText = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      // Bold and Italic (e.g., ***text***)
+      formattedText = formattedText.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      formattedText = formattedText.replace(/___(.*?)___/g, '<strong><em>$1</em></strong>');
+      
+      // Bold (e.g., **text**)
+      formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      formattedText = formattedText.replace(/__(.*?)__/g, '<strong>$1</strong>');
+      
+      // Italic (e.g., *text*)
+      formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      formattedText = formattedText.replace(/_(.*?)_/g, '<em>$1</em>');
+      
+      return formattedText;
+    };
+
+    const blocks = markdown.split(/\n\s*\n/);
+
+    return blocks.map((block, index) => {
+      // Trim the block for accurate matching
+      const trimmedBlock = block.trim();
+
+      // Headings (h1-h6)
+      const headingMatch = trimmedBlock.match(/^(#{1,6})\s(.*)/);
+      if (headingMatch) {
+        const level = headingMatch[1].length;
+        const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+        const content = applyInlineFormatting(headingMatch[2]);
+        return <Tag key={index} dangerouslySetInnerHTML={{ __html: content }} />;
       }
-      if (part) {
-        return <p key={index} className="text-gray-300 whitespace-pre-wrap leading-relaxed">{part}</p>;
+      
+      // Unordered List
+      if (/^[\*\-]\s/.test(trimmedBlock)) {
+        const items = trimmedBlock.split('\n').map(line => line.replace(/^[\*\-]\s/, ''));
+        return (
+          <ul key={index} className="list-disc list-inside">
+            {items.map((item, i) => (
+              <li key={i} dangerouslySetInnerHTML={{ __html: applyInlineFormatting(item) }} />
+            ))}
+          </ul>
+        );
       }
-      return null;
+      
+      // Ordered List
+      if (/^\d+\.\s/.test(trimmedBlock)) {
+        const items = trimmedBlock.split('\n').map(line => line.replace(/^\d+\.\s/, ''));
+        return (
+          <ol key={index} className="list-decimal list-inside">
+            {items.map((item, i) => (
+              <li key={i} dangerouslySetInnerHTML={{ __html: applyInlineFormatting(item) }} />
+            ))}
+          </ol>
+        );
+      }
+      
+      // Image-only block
+      const imageOnlyMatch = trimmedBlock.match(/^!\[(.*?)\]\((.*?)\)$/);
+      if (imageOnlyMatch) {
+        return <img key={index} src={imageOnlyMatch[2]} alt={imageOnlyMatch[1]} className="my-4 rounded-lg shadow-lg max-w-full h-auto mx-auto"/>;
+      }
+
+      // Paragraph with potential inline images
+      const parts = block.split(/(!\[.*?\]\(.*?\))/g).filter(part => part);
+      
+      if (parts.length === 0 || (parts.length === 1 && parts[0].trim() === '')) {
+        return null; // Don't render empty paragraphs
+      }
+
+      return (
+        <p key={index} className="text-gray-300 leading-relaxed">
+          {parts.map((part, i) => {
+            const imageMatch = part.match(/!\[(.*?)\]\((.*?)\)/);
+            if (imageMatch) {
+              return <img key={i} src={imageMatch[2]} alt={imageMatch[1]} className="my-4 rounded-lg shadow-lg max-w-full h-auto mx-auto"/>;
+            } else {
+              return <span key={i} dangerouslySetInnerHTML={{ __html: applyInlineFormatting(part) }} />;
+            }
+          })}
+        </p>
+      );
     });
   };
 
@@ -86,7 +162,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, saveStatus }
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Start writing..."
+            placeholder="Start writing... (Markdown supported)"
             className="flex-1 bg-transparent w-full h-full resize-none focus:outline-none text-gray-200 leading-relaxed"
           />
         </div>
@@ -96,7 +172,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, saveStatus }
           <div className="flex-1 p-6 overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-300 border-b border-gray-700 pb-2">Live Preview</h3>
             <div className="prose prose-invert prose-sm max-w-none">
-              {renderContent(content)}
+              {renderMarkdown(content)}
             </div>
           </div>
         </div>
