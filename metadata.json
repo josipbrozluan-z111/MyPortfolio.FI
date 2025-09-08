@@ -1,0 +1,5 @@
+{
+  "name": "Portfolio Writer",
+  "description": "A simple and elegant portfolio writing application. Create, edit, and manage your writing entries. Import and export your entire portfolio as a single JSON file for easy backup and synchronization.",
+  "requestFramePermissions": []
+}
