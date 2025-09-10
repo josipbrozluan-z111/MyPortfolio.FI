@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import WelcomePage from './components/WelcomePage';
 import EmptyState from './components/EmptyState';
-import { PortfolioData, PortfolioEntry } from './types';
+import { PortfolioData, PortfolioEntry, Topic } from './types';
 import { BookOpenIcon } from './components/Icons';
 
 // Type definition for FileSystemFileHandle, which may not be in all TS lib versions.
@@ -93,11 +94,39 @@ async function clearFileHandle(): Promise<void> {
 
 
 const App: React.FC = () => {
-  const [portfolioData, setPortfolioData] = useState<PortfolioData>({ entries: [] });
+  const [portfolioData, setPortfolioData] = useState<PortfolioData>({ topics: [] });
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Helper function to process loaded data, handling migration from old format
+  const processLoadedData = (data: any, handle?: FileSystemFileHandle) => {
+      if (data && Array.isArray(data.topics)) {
+        // New format, load directly
+        setPortfolioData(data);
+        setActiveEntryId(data.topics[0]?.entries[0]?.id || null);
+      } else if (data && Array.isArray(data.entries)) {
+        // Old format, migrate it
+        console.log("Old data format detected. Migrating to new topic-based structure.");
+        const newTopic: Topic = {
+          id: `topic-${Date.now()}`,
+          name: 'General',
+          createdAt: new Date().toISOString(),
+          entries: data.entries,
+        };
+        const newPortfolioData: PortfolioData = { topics: [newTopic] };
+        setPortfolioData(newPortfolioData);
+        setActiveEntryId(newPortfolioData.topics[0]?.entries[0]?.id || null);
+        // Mark as unsaved so the new structure gets written back to the file
+        if (handle) {
+          setSaveStatus('unsaved');
+        }
+      } else {
+        throw new Error("Invalid JSON structure.");
+      }
+  }
+
 
   useEffect(() => {
     const autoLoadLastProject = async () => {
@@ -119,17 +148,12 @@ const App: React.FC = () => {
 
         const file = await handle.getFile();
         const contents = await file.text();
-        const parsedData: PortfolioData = JSON.parse(contents);
+        const parsedData = JSON.parse(contents);
 
-        if (parsedData && Array.isArray(parsedData.entries)) {
-          setFileHandle(handle);
-          setPortfolioData(parsedData);
-          setActiveEntryId(parsedData.entries[0]?.id || null);
-          setSaveStatus('saved');
-        } else {
-          console.warn("Invalid data in saved file handle. Clearing.");
-          await clearFileHandle();
-        }
+        setFileHandle(handle);
+        processLoadedData(parsedData, handle);
+        setSaveStatus('saved');
+        
       } catch (error) {
         if (error instanceof DOMException && error.name === 'NotFoundError') {
             alert('The previously opened file could not be found. It may have been moved or deleted.');
@@ -190,11 +214,17 @@ const App: React.FC = () => {
       
       const newEntry: PortfolioEntry = {
         id: `entry-${Date.now()}`,
-        title: 'New Entry',
-        content: '',
+        title: 'My First Entry',
+        content: '# Welcome!\n\nThis is your first entry in your new portfolio.',
         createdAt: new Date().toISOString(),
       };
-      const newPortfolioData = { entries: [newEntry] };
+      const newTopic: Topic = {
+        id: `topic-${Date.now()}`,
+        name: 'My First Topic',
+        createdAt: new Date().toISOString(),
+        entries: [newEntry],
+      };
+      const newPortfolioData: PortfolioData = { topics: [newTopic] };
       
       const writable = await handle.createWritable();
       await writable.write(JSON.stringify(newPortfolioData, null, 2));
@@ -227,18 +257,12 @@ const App: React.FC = () => {
 
       const file = await handle.getFile();
       const contents = await file.text();
-      const parsedData: PortfolioData = JSON.parse(contents);
+      const parsedData = JSON.parse(contents);
 
-       if (parsedData && Array.isArray(parsedData.entries)) {
-          await saveFileHandle(handle);
-          setFileHandle(handle);
-          setPortfolioData(parsedData);
-          setActiveEntryId(parsedData.entries[0]?.id || null);
-          setSaveStatus('saved');
-        } else {
-          throw new Error("Invalid JSON structure.");
-        }
-
+      await saveFileHandle(handle);
+      setFileHandle(handle);
+      processLoadedData(parsedData);
+      setSaveStatus('saved');
     } catch (error) {
        if ((error as DOMException).name !== 'AbortError') {
         console.error("Error importing project:", error);
@@ -247,38 +271,88 @@ const App: React.FC = () => {
     }
   }
 
-  const handleAddNewEntry = () => {
+  const handleAddNewTopic = () => {
+    const topicName = prompt("Enter new topic name:", "New Topic");
+    if (topicName && topicName.trim()) {
+        const newTopic: Topic = {
+            id: `topic-${Date.now()}`,
+            name: topicName.trim(),
+            createdAt: new Date().toISOString(),
+            entries: [],
+        };
+        updatePortfolioData({
+            ...portfolioData,
+            topics: [newTopic, ...portfolioData.topics],
+        });
+    }
+  };
+
+  const handleDeleteTopic = (topicId: string) => {
+    const topicToDelete = portfolioData.topics.find(t => t.id === topicId);
+    if (window.confirm(`Are you sure you want to delete the topic "${topicToDelete?.name}" and all its entries?`)) {
+        const newTopics = portfolioData.topics.filter(t => t.id !== topicId);
+        
+        const activeEntryWasInDeletedTopic = topicToDelete?.entries.some(e => e.id === activeEntryId);
+
+        updatePortfolioData({
+            ...portfolioData,
+            topics: newTopics,
+        });
+
+        if (activeEntryWasInDeletedTopic) {
+            setActiveEntryId(newTopics[0]?.entries[0]?.id || null);
+        }
+    }
+  };
+
+
+  const handleAddNewEntry = (topicId: string) => {
     const newEntry: PortfolioEntry = {
       id: `entry-${Date.now()}`,
       title: 'New Entry',
       content: '',
       createdAt: new Date().toISOString(),
     };
+    const newTopics = portfolioData.topics.map(topic => {
+        if (topic.id === topicId) {
+            return { ...topic, entries: [newEntry, ...topic.entries] };
+        }
+        return topic;
+    });
     updatePortfolioData({
       ...portfolioData,
-      entries: [newEntry, ...portfolioData.entries],
+      topics: newTopics,
     });
     setActiveEntryId(newEntry.id);
   };
 
   const handleDeleteEntry = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
-      const updatedEntries = portfolioData.entries.filter(entry => entry.id !== id);
+      const newTopics = portfolioData.topics.map(topic => {
+        const updatedEntries = topic.entries.filter(entry => entry.id !== id);
+        return { ...topic, entries: updatedEntries };
+      });
+
       updatePortfolioData({
         ...portfolioData,
-        entries: updatedEntries,
+        topics: newTopics,
       });
+
       if (activeEntryId === id) {
-        setActiveEntryId(updatedEntries[0]?.id || null);
+        const firstEntry = newTopics.flatMap(t => t.entries)[0];
+        setActiveEntryId(firstEntry?.id || null);
       }
     }
   };
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
-    const newEntries = portfolioData.entries.map(entry =>
-      entry.id === id ? { ...entry, ...updates } : entry
-    );
-    updatePortfolioData({ ...portfolioData, entries: newEntries });
+    const newTopics = portfolioData.topics.map(topic => ({
+      ...topic,
+      entries: topic.entries.map(entry =>
+        entry.id === id ? { ...entry, ...updates } : entry
+      )
+    }));
+    updatePortfolioData({ ...portfolioData, topics: newTopics });
   }, [portfolioData]);
 
   const handleDownload = () => {
@@ -294,7 +368,9 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const activeEntry = portfolioData.entries.find(e => e.id === activeEntryId);
+  const activeEntry = portfolioData.topics
+    .flatMap(topic => topic.entries)
+    .find(e => e.id === activeEntryId);
 
   const renderMainContent = () => {
     if (activeEntry) {
@@ -327,11 +403,13 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen w-screen font-sans">
       <Sidebar
-        entries={portfolioData.entries}
+        topics={portfolioData.topics}
         activeEntryId={activeEntryId}
         onSelectEntry={setActiveEntryId}
+        onCreateTopic={handleAddNewTopic}
         onCreateEntry={handleAddNewEntry}
         onDeleteEntry={handleDeleteEntry}
+        onDeleteTopic={handleDeleteTopic}
         onDownload={handleDownload}
         onTriggerUpload={handleImportProject}
       />

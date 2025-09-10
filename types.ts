@@ -6,6 +6,13 @@ export interface PortfolioEntry {
   createdAt: string;
 }
 
-export interface PortfolioData {
+export interface Topic {
+  id: string;
+  name: string;
+  createdAt: string;
   entries: PortfolioEntry[];
+}
+
+export interface PortfolioData {
+  topics: Topic[];
 }
