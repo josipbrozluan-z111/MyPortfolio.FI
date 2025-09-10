@@ -99,9 +99,10 @@ const App: React.FC = () => {
   const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
   const [isLoading, setIsLoading] = useState(true);
+  const [lastModified, setLastModified] = useState<number | null>(null);
 
   // Helper function to process loaded data, handling migration from old format
-  const processLoadedData = (data: any, handle?: FileSystemFileHandle) => {
+  const processLoadedData = useCallback((data: any, handle?: FileSystemFileHandle) => {
       if (data && Array.isArray(data.topics)) {
         // New format, load directly
         setPortfolioData(data);
@@ -125,7 +126,7 @@ const App: React.FC = () => {
       } else {
         throw new Error("Invalid JSON structure.");
       }
-  }
+  }, []);
 
 
   useEffect(() => {
@@ -150,6 +151,7 @@ const App: React.FC = () => {
         const contents = await file.text();
         const parsedData = JSON.parse(contents);
 
+        setLastModified(file.lastModified);
         setFileHandle(handle);
         processLoadedData(parsedData, handle);
         setSaveStatus('saved');
@@ -167,7 +169,7 @@ const App: React.FC = () => {
     };
 
     autoLoadLastProject();
-  }, []);
+  }, [processLoadedData]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -181,6 +183,9 @@ const App: React.FC = () => {
         const writable = await fileHandle.createWritable();
         await writable.write(JSON.stringify(portfolioData, null, 2));
         await writable.close();
+
+        const updatedFile = await fileHandle.getFile();
+        setLastModified(updatedFile.lastModified);
         setSaveStatus('saved');
       } catch (error) {
         console.error("Auto-save failed:", error);
@@ -193,6 +198,54 @@ const App: React.FC = () => {
       clearTimeout(handler);
     };
   }, [portfolioData, fileHandle, saveStatus]);
+
+  // Effect to detect external file changes on window focus
+  useEffect(() => {
+    const checkForExternalChanges = async () => {
+      if (!fileHandle || !lastModified) {
+        return;
+      }
+
+      try {
+        const file = await fileHandle.getFile();
+        
+        // Check if file on disk is newer than our last known version
+        // Add a small buffer (2ms) to avoid issues with timestamp precision
+        if (file.lastModified > lastModified + 2) {
+          const message = saveStatus === 'unsaved'
+            ? "The project file has been changed on disk, and you have unsaved changes in the app. Reloading will discard your changes. Do you want to reload?"
+            : "The project file has been changed on disk. Do you want to reload it?";
+          
+          if (window.confirm(message)) {
+            // User wants to reload
+            const contents = await file.text();
+            const parsedData = JSON.parse(contents);
+            processLoadedData(parsedData);
+            setLastModified(file.lastModified);
+            setSaveStatus('saved');
+            alert('Project reloaded from disk.');
+          } else {
+            // User wants to keep their version, which will overwrite external changes on next save
+            setSaveStatus('unsaved');
+            alert("External changes ignored. Your version will be saved, overwriting the changes on disk.");
+          }
+        }
+      } catch (error) {
+        // Handle cases like file being deleted or becoming inaccessible
+        if (error instanceof DOMException && error.name === 'NotFoundError') {
+            alert('The project file seems to have been moved or deleted. Cannot check for updates.');
+        } else {
+            console.error("Error checking for external file changes:", error);
+        }
+      }
+    };
+
+    window.addEventListener('focus', checkForExternalChanges);
+
+    return () => {
+      window.removeEventListener('focus', checkForExternalChanges);
+    };
+  }, [fileHandle, lastModified, saveStatus, processLoadedData]);
 
   const handleCreateNewProject = async () => {
     try {
@@ -223,6 +276,9 @@ const App: React.FC = () => {
       await writable.close();
       
       await saveFileHandle(handle);
+      
+      const newFile = await handle.getFile();
+      setLastModified(newFile.lastModified);
 
       setFileHandle(handle);
       setPortfolioData(newPortfolioData);
@@ -250,7 +306,8 @@ const App: React.FC = () => {
       const file = await handle.getFile();
       const contents = await file.text();
       const parsedData = JSON.parse(contents);
-
+      
+      setLastModified(file.lastModified);
       await saveFileHandle(handle);
       setFileHandle(handle);
       processLoadedData(parsedData);
