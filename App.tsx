@@ -193,14 +193,6 @@ const App: React.FC = () => {
       clearTimeout(handler);
     };
   }, [portfolioData, fileHandle, saveStatus]);
-  
-  // Mark changes as unsaved
-  const updatePortfolioData = (newData: PortfolioData) => {
-    setPortfolioData(newData);
-    if(fileHandle) { // Only set unsaved status if a file is loaded
-      setSaveStatus('unsaved');
-    }
-  }
 
   const handleCreateNewProject = async () => {
     try {
@@ -280,10 +272,11 @@ const App: React.FC = () => {
             createdAt: new Date().toISOString(),
             entries: [],
         };
-        updatePortfolioData({
-            ...portfolioData,
-            topics: [newTopic, ...portfolioData.topics],
-        });
+        setPortfolioData(currentData => ({
+            ...currentData,
+            topics: [newTopic, ...currentData.topics],
+        }));
+        if(fileHandle) setSaveStatus('unsaved');
     }
   };
 
@@ -294,10 +287,11 @@ const App: React.FC = () => {
         
         const activeEntryWasInDeletedTopic = topicToDelete?.entries.some(e => e.id === activeEntryId);
 
-        updatePortfolioData({
+        setPortfolioData({
             ...portfolioData,
             topics: newTopics,
         });
+        if(fileHandle) setSaveStatus('unsaved');
 
         if (activeEntryWasInDeletedTopic) {
             setActiveEntryId(newTopics[0]?.entries[0]?.id || null);
@@ -313,16 +307,19 @@ const App: React.FC = () => {
       content: '',
       createdAt: new Date().toISOString(),
     };
-    const newTopics = portfolioData.topics.map(topic => {
-        if (topic.id === topicId) {
-            return { ...topic, entries: [newEntry, ...topic.entries] };
-        }
-        return topic;
+    setPortfolioData(currentData => {
+        const newTopics = currentData.topics.map(topic => {
+            if (topic.id === topicId) {
+                return { ...topic, entries: [newEntry, ...topic.entries] };
+            }
+            return topic;
+        });
+        return {
+          ...currentData,
+          topics: newTopics,
+        };
     });
-    updatePortfolioData({
-      ...portfolioData,
-      topics: newTopics,
-    });
+    if(fileHandle) setSaveStatus('unsaved');
     setActiveEntryId(newEntry.id);
   };
 
@@ -333,10 +330,11 @@ const App: React.FC = () => {
         return { ...topic, entries: updatedEntries };
       });
 
-      updatePortfolioData({
+      setPortfolioData({
         ...portfolioData,
         topics: newTopics,
       });
+      if(fileHandle) setSaveStatus('unsaved');
 
       if (activeEntryId === id) {
         const firstEntry = newTopics.flatMap(t => t.entries)[0];
@@ -346,14 +344,19 @@ const App: React.FC = () => {
   };
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
-    const newTopics = portfolioData.topics.map(topic => ({
-      ...topic,
-      entries: topic.entries.map(entry =>
-        entry.id === id ? { ...entry, ...updates } : entry
-      )
-    }));
-    updatePortfolioData({ ...portfolioData, topics: newTopics });
-  }, [portfolioData]);
+    setPortfolioData(currentData => {
+        const newTopics = currentData.topics.map(topic => ({
+          ...topic,
+          entries: topic.entries.map(entry =>
+            entry.id === id ? { ...entry, ...updates } : entry
+          )
+        }));
+        return { ...currentData, topics: newTopics };
+    });
+    if (fileHandle) {
+        setSaveStatus('unsaved');
+    }
+  }, [fileHandle]);
 
   const handleDownload = () => {
     const dataStr = JSON.stringify(portfolioData, null, 2);
