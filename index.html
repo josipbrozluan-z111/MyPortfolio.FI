@@ -7,12 +7,18 @@
     <title>Portfolio Writer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      :root {
+        --accent-color: #06b6d4; /* Default: cyan-600 */
+      }
       /* For custom scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
       }
-      ::-webkit-scrollbar-track {
+      .dark ::-webkit-scrollbar-track {
         background: #1f2937; /* bg-gray-800 */
+      }
+      .light ::-webkit-scrollbar-track {
+        background: #f3f4f6; /* bg-gray-100 */
       }
       ::-webkit-scrollbar-thumb {
         background: #4b5563; /* bg-gray-600 */
@@ -21,6 +27,32 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #6b7280; /* bg-gray-500 */
       }
+      .accent-text { color: var(--accent-color); }
+      .accent-bg { background-color: var(--accent-color); }
+      .accent-bg-hover:hover { 
+        background-color: var(--accent-color); 
+        filter: brightness(1.1);
+      }
+      .ring-accent { --tw-ring-color: var(--accent-color) !important; }
+      .border-accent { border-color: var(--accent-color); }
+      .group:hover .group-hover-accent-text { color: var(--accent-color); }
+
+      /* Simple prose styles for the editor */
+      .prose-editor {
+        outline: none;
+      }
+      .prose-editor h1, .prose-editor h2, .prose-editor h3, .prose-editor p, .prose-editor div {
+        line-height: 1.7;
+      }
+      .prose-editor h1, .prose-editor h2, .prose-editor h3 {
+        margin-bottom: 0.5em;
+        margin-top: 1em;
+        font-weight: 600;
+      }
+      .prose-editor h1 { font-size: 2em; }
+      .prose-editor h2 { font-size: 1.5em; }
+      .prose-editor h3 { font-size: 1.25em; }
+      .prose-editor p { margin-bottom: 1em; }
     </style>
   <script type="importmap">
 {
@@ -33,7 +65,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-900 text-gray-100">
+  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

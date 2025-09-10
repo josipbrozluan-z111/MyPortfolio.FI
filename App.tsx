@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
@@ -100,6 +99,33 @@ const App: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
   const [isLoading, setIsLoading] = useState(true);
   const [lastModified, setLastModified] = useState<number | null>(null);
+
+  // --- Theme State ---
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
+  });
+  const [accentColor, setAccentColorState] = useState<string>(() => {
+      return localStorage.getItem('accentColor') || '#06b6d4'; // Default cyan-600
+  });
+
+  const handleSetTheme = (newTheme: 'light' | 'dark') => {
+      setThemeState(newTheme);
+      localStorage.setItem('theme', newTheme);
+  };
+
+  const handleSetAccentColor = (color: string) => {
+      setAccentColorState(color);
+      localStorage.setItem('accentColor', color);
+  };
+  
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    root.style.setProperty('--accent-color', accentColor);
+  }, [theme, accentColor]);
+  // --- End Theme State ---
 
   // Helper function to process loaded data, handling migration from old format
   const processLoadedData = useCallback((data: any, handle?: FileSystemFileHandle) => {
@@ -260,7 +286,7 @@ const App: React.FC = () => {
       const newEntry: PortfolioEntry = {
         id: `entry-${Date.now()}`,
         title: 'My First Entry',
-        content: '# Welcome!\n\nThis is your first entry in your new portfolio.',
+        content: '<h1>Welcome!</h1><p>This is your first entry in your new portfolio. Use the toolbar above to format your text.</p>',
         createdAt: new Date().toISOString(),
       };
       const newTopic: Topic = {
@@ -434,16 +460,16 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} saveStatus={saveStatus}/>;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} saveStatus={saveStatus} accentColor={accentColor} />;
     }
     return <EmptyState />;
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen w-screen bg-gray-900">
-        <div className="flex flex-col items-center justify-center text-center p-8 text-gray-400">
-          <BookOpenIcon className="w-24 h-24 mb-6 text-gray-600 animate-pulse"/>
+      <div className="flex items-center justify-center h-screen w-screen bg-gray-100 dark:bg-gray-900">
+        <div className="flex flex-col items-center justify-center text-center p-8 text-gray-500 dark:text-gray-400">
+          <BookOpenIcon className="w-24 h-24 mb-6 text-gray-400 dark:text-gray-600 animate-pulse"/>
           <h2 className="text-2xl font-semibold">Loading Your Workspace</h2>
           <p className="mt-2">Please wait a moment...</p>
         </div>
@@ -465,6 +491,8 @@ const App: React.FC = () => {
       <Sidebar
         topics={portfolioData.topics}
         activeEntryId={activeEntryId}
+        theme={theme}
+        accentColor={accentColor}
         onSelectEntry={setActiveEntryId}
         onCreateTopic={handleAddNewTopic}
         onCreateEntry={handleAddNewEntry}
@@ -472,8 +500,10 @@ const App: React.FC = () => {
         onDeleteTopic={handleDeleteTopic}
         onDownload={handleDownload}
         onTriggerUpload={handleImportProject}
+        onSetTheme={handleSetTheme}
+        onSetAccentColor={handleSetAccentColor}
       />
-      <main className="flex-1 bg-gray-900">
+      <main className="flex-1 bg-gray-100 dark:bg-gray-900">
         {renderMainContent()}
       </main>
     </div>
