@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PortfolioEntry } from '../types';
 import { 
@@ -230,7 +231,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
                 ref={editorRef}
                 contentEditable={true}
                 onInput={handleContentChange}
-                className="prose-editor max-w-4xl mx-auto p-8 w-full h-full text-gray-800 dark:text-gray-200"
+                className="prose-editor max-w-4xl mx-auto p-8 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none"
                 spellCheck="true"
             />
         </div>
