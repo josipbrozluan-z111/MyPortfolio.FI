@@ -267,6 +267,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   const [title, setTitle] = useState(entry.title);
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const contentDebounceTimer = useRef<number | null>(null);
   
   useEffect(() => {
     setTitle(entry.title);
@@ -276,10 +277,24 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   }, [entry.id, entry.title, entry.content]);
 
   const handleContentChange = () => {
-    if (editorRef.current) {
-        onUpdate(entry.id, { content: editorRef.current.innerHTML });
+    if (contentDebounceTimer.current) {
+      clearTimeout(contentDebounceTimer.current);
     }
+    contentDebounceTimer.current = window.setTimeout(() => {
+      if (editorRef.current) {
+        onUpdate(entry.id, { content: editorRef.current.innerHTML });
+      }
+    }, 500); // 500ms delay for debouncing
   };
+
+  useEffect(() => {
+    // Cleanup timer on component unmount
+    return () => {
+      if (contentDebounceTimer.current) {
+        clearTimeout(contentDebounceTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -323,7 +338,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         const result = e.target?.result;
         if (typeof result === 'string') {
           insertImage(result);
-          handleContentChange(); // Trigger save after image insert
+          handleContentChange(); // Trigger debounced save after image insert
         }
       };
       reader.readAsDataURL(file);
@@ -345,7 +360,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
             const result = e.target?.result;
             if (typeof result === 'string') {
               insertImage(result);
-              handleContentChange(); // Trigger save after image insert
+              handleContentChange(); // Trigger debounced save after image insert
             }
           };
           reader.readAsDataURL(file);
