@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import WelcomePage from './components/WelcomePage';
@@ -6,99 +6,11 @@ import EmptyState from './components/EmptyState';
 import { PortfolioData, PortfolioEntry, Topic } from './types';
 import { BookOpenIcon } from './components/Icons';
 
-// Type definition for FileSystemFileHandle, which may not be in all TS lib versions.
-// This ensures our code knows about the API.
-declare global {
-  interface Window {
-    showOpenFilePicker(options?: any): Promise<FileSystemFileHandle[]>;
-    showSaveFilePicker(options?: any): Promise<FileSystemFileHandle>;
-  }
-  // FIX: Added definitions for FileSystemFileHandle permission methods to resolve TypeScript errors.
-  // These are part of the File System Access API, which may not be included in default TS DOM type libraries.
-  interface FileSystemFileHandle {
-    queryPermission(options?: { mode: 'read' | 'readwrite' }): Promise<PermissionState>;
-    requestPermission(options?: { mode: 'read' | 'readwrite' }): Promise<PermissionState>;
-  }
-}
-
-// --- IndexedDB Helper Functions ---
-const DB_NAME = 'portfolio-writer-db';
-const STORE_NAME = 'file-handles';
-const KEY = 'last-opened';
-
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-function getDb(): Promise<IDBDatabase> {
-  if (dbPromise) {
-    return dbPromise;
-  }
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => {
-      console.error("Error opening DB", request.error);
-      reject("Error opening DB");
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(STORE_NAME)) {
-        request.result.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-  return dbPromise;
-}
-
-async function saveFileHandle(handle: FileSystemFileHandle): Promise<void> {
-  const db = await getDb();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  store.put(handle, KEY);
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function getFileHandle(): Promise<FileSystemFileHandle | null> {
-    try {
-        const db = await getDb();
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.get(KEY);
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => resolve(request.result || null);
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.error("Could not get file handle from DB", error);
-        return null;
-    }
-}
-
-async function clearFileHandle(): Promise<void> {
-  try {
-    const db = await getDb();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    store.delete(KEY);
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
-  } catch (error) {
-    console.error("Could not clear file handle from DB", error);
-  }
-}
-// --- End IndexedDB Helper Functions ---
-
-
 const App: React.FC = () => {
-  const [portfolioData, setPortfolioData] = useState<PortfolioData>({ topics: [] });
+  const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
-  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'saving'>('saved');
   const [isLoading, setIsLoading] = useState(true);
-  const [lastModified, setLastModified] = useState<number | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // --- Theme State ---
   const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
@@ -128,11 +40,14 @@ const App: React.FC = () => {
   // --- End Theme State ---
 
   // Helper function to process loaded data, handling migration from old format
-  const processLoadedData = useCallback((data: any, handle?: FileSystemFileHandle) => {
+  const processLoadedData = useCallback((data: any) => {
+      let newPortfolioData: PortfolioData;
+      let newActiveEntryId: string | null = null;
+      
       if (data && Array.isArray(data.topics)) {
         // New format, load directly
-        setPortfolioData(data);
-        setActiveEntryId(data.topics[0]?.entries[0]?.id || null);
+        newPortfolioData = data;
+        newActiveEntryId = data.topics[0]?.entries[0]?.id || null;
       } else if (data && Array.isArray(data.entries)) {
         // Old format, migrate it
         console.log("Old data format detected. Migrating to new topic-based structure.");
@@ -142,209 +57,95 @@ const App: React.FC = () => {
           createdAt: new Date().toISOString(),
           entries: data.entries,
         };
-        const newPortfolioData: PortfolioData = { topics: [newTopic] };
-        setPortfolioData(newPortfolioData);
-        setActiveEntryId(newPortfolioData.topics[0]?.entries[0]?.id || null);
-        // Mark as unsaved so the new structure gets written back to the file
-        if (handle) {
-          setSaveStatus('unsaved');
-        }
+        newPortfolioData = { topics: [newTopic] };
+        newActiveEntryId = newPortfolioData.topics[0]?.entries[0]?.id || null;
       } else {
         throw new Error("Invalid JSON structure.");
       }
+      
+      setPortfolioData(newPortfolioData);
+      setActiveEntryId(newActiveEntryId);
   }, []);
 
-
+  // Initial load from localStorage
   useEffect(() => {
-    const autoLoadLastProject = async () => {
-      try {
-        const handle = await getFileHandle();
-        if (!handle) {
-          setIsLoading(false);
-          return;
-        }
-
-        const permission = await handle.queryPermission({ mode: 'readwrite' });
-        if (permission !== 'granted') {
-          if ((await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
-            await clearFileHandle();
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        const file = await handle.getFile();
-        const contents = await file.text();
-        const parsedData = JSON.parse(contents);
-
-        setLastModified(file.lastModified);
-        setFileHandle(handle);
-        processLoadedData(parsedData, handle);
-        setSaveStatus('saved');
-        
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'NotFoundError') {
-            alert('The previously opened file could not be found. It may have been moved or deleted.');
-        } else {
-            console.error("Failed to auto-load last project:", error);
-        }
-        await clearFileHandle();
-      } finally {
-        setIsLoading(false);
+    try {
+      const savedData = localStorage.getItem('portfolioData');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        processLoadedData(parsedData);
       }
-    };
-
-    autoLoadLastProject();
+    } catch (error) {
+      console.error("Failed to load or parse data from localStorage", error);
+      // Clear potentially corrupted data
+      localStorage.removeItem('portfolioData');
+    } finally {
+      setIsLoading(false);
+    }
   }, [processLoadedData]);
 
-  // Debounced auto-save effect
+  // Auto-save to localStorage
   useEffect(() => {
-    if (saveStatus !== 'unsaved' || !fileHandle) {
-      return;
+    // We only save if portfolioData is not null (i.e., a project is loaded/created)
+    if (portfolioData) {
+      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
     }
+  }, [portfolioData]);
 
-    const handler = setTimeout(async () => {
-      setSaveStatus('saving');
-      try {
-        const writable = await fileHandle.createWritable();
-        await writable.write(JSON.stringify(portfolioData, null, 2));
-        await writable.close();
-
-        const updatedFile = await fileHandle.getFile();
-        setLastModified(updatedFile.lastModified);
-        setSaveStatus('saved');
-      } catch (error) {
-        console.error("Auto-save failed:", error);
-        alert("Auto-save failed. Your changes might not be saved. Please try exporting your work.");
-        setSaveStatus('unsaved'); // Revert status on failure
-      }
-    }, 1500); // 1.5-second debounce delay
-
-    return () => {
-      clearTimeout(handler);
+  const handleCreateNewProject = () => {
+    const newEntry: PortfolioEntry = {
+      id: `entry-${Date.now()}`,
+      title: 'My First Entry',
+      content: '<h1>Welcome!</h1><p>This is your first entry in your new portfolio. Use the toolbar above to format your text.</p>',
+      createdAt: new Date().toISOString(),
     };
-  }, [portfolioData, fileHandle, saveStatus]);
+    const newTopic: Topic = {
+      id: `topic-${Date.now()}`,
+      name: 'My First Topic',
+      createdAt: new Date().toISOString(),
+      entries: [newEntry],
+    };
+    const newPortfolioData: PortfolioData = { topics: [newTopic] };
+    
+    setPortfolioData(newPortfolioData);
+    setActiveEntryId(newEntry.id);
+  };
 
-  // Effect to detect external file changes on window focus
-  useEffect(() => {
-    const checkForExternalChanges = async () => {
-      if (!fileHandle || !lastModified) {
-        return;
-      }
+  const handleImportProject = () => {
+    importInputRef.current?.click();
+  };
 
-      try {
-        const file = await fileHandle.getFile();
-        
-        // Check if file on disk is newer than our last known version
-        // Add a small buffer (2ms) to avoid issues with timestamp precision
-        if (file.lastModified > lastModified + 2) {
-          const message = saveStatus === 'unsaved'
-            ? "The project file has been changed on disk, and you have unsaved changes in the app. Reloading will discard your changes. Do you want to reload?"
-            : "The project file has been changed on disk. Do you want to reload it?";
-          
-          if (window.confirm(message)) {
-            // User wants to reload
-            const contents = await file.text();
-            const parsedData = JSON.parse(contents);
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const text = e.target?.result;
+            if (typeof text !== 'string') {
+                throw new Error("File could not be read as text");
+            }
+            const parsedData = JSON.parse(text);
             processLoadedData(parsedData);
-            setLastModified(file.lastModified);
-            setSaveStatus('saved');
-            alert('Project reloaded from disk.');
-          } else {
-            // User wants to keep their version, which will overwrite external changes on next save
-            setSaveStatus('unsaved');
-            alert("External changes ignored. Your version will be saved, overwriting the changes on disk.");
-          }
+        } catch (error) {
+            console.error("Error importing project:", error);
+            alert("Failed to import file. Please ensure it is a valid portfolio JSON file.");
         }
-      } catch (error) {
-        // Handle cases like file being deleted or becoming inaccessible
-        if (error instanceof DOMException && error.name === 'NotFoundError') {
-            alert('The project file seems to have been moved or deleted. Cannot check for updates.');
-        } else {
-            console.error("Error checking for external file changes:", error);
-        }
-      }
+    };
+    reader.onerror = () => {
+        console.error("Error reading file:", reader.error);
+        alert("Could not read the selected file.");
     };
 
-    window.addEventListener('focus', checkForExternalChanges);
-
-    return () => {
-      window.removeEventListener('focus', checkForExternalChanges);
-    };
-  }, [fileHandle, lastModified, saveStatus, processLoadedData]);
-
-  const handleCreateNewProject = async () => {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: 'portfolio-data.json',
-        types: [{
-          description: 'JSON Files',
-          accept: { 'application/json': ['.json'] },
-        }],
-      });
-      
-      const newEntry: PortfolioEntry = {
-        id: `entry-${Date.now()}`,
-        title: 'My First Entry',
-        content: '<h1>Welcome!</h1><p>This is your first entry in your new portfolio. Use the toolbar above to format your text.</p>',
-        createdAt: new Date().toISOString(),
-      };
-      const newTopic: Topic = {
-        id: `topic-${Date.now()}`,
-        name: 'My First Topic',
-        createdAt: new Date().toISOString(),
-        entries: [newEntry],
-      };
-      const newPortfolioData: PortfolioData = { topics: [newTopic] };
-      
-      const writable = await handle.createWritable();
-      await writable.write(JSON.stringify(newPortfolioData, null, 2));
-      await writable.close();
-      
-      await saveFileHandle(handle);
-      
-      const newFile = await handle.getFile();
-      setLastModified(newFile.lastModified);
-
-      setFileHandle(handle);
-      setPortfolioData(newPortfolioData);
-      setActiveEntryId(newEntry.id);
-      setSaveStatus('saved');
-
-    } catch (error) {
-      if ((error as DOMException).name !== 'AbortError') {
-        console.error("Error creating new project file:", error);
-        alert("Could not create new project file.");
-      }
+    reader.readAsText(file);
+    
+    // Reset input value to allow re-importing the same file
+    if (event.target) {
+        event.target.value = '';
     }
   };
 
-  const handleImportProject = async () => {
-    try {
-      const [handle] = await window.showOpenFilePicker({
-         types: [{
-          description: 'JSON Files',
-          accept: { 'application/json': ['.json'] },
-        }],
-        multiple: false,
-      });
-
-      const file = await handle.getFile();
-      const contents = await file.text();
-      const parsedData = JSON.parse(contents);
-      
-      setLastModified(file.lastModified);
-      await saveFileHandle(handle);
-      setFileHandle(handle);
-      processLoadedData(parsedData);
-      setSaveStatus('saved');
-    } catch (error) {
-       if ((error as DOMException).name !== 'AbortError') {
-        console.error("Error importing project:", error);
-        alert("Failed to import file. Please ensure it is a valid portfolio JSON file.");
-      }
-    }
-  }
 
   const handleAddNewTopic = () => {
     const topicName = prompt("Enter new topic name:", "New Topic");
@@ -356,25 +157,23 @@ const App: React.FC = () => {
             entries: [],
         };
         setPortfolioData(currentData => ({
-            ...currentData,
-            topics: [newTopic, ...currentData.topics],
+            ...currentData!,
+            topics: [newTopic, ...(currentData?.topics || [])],
         }));
-        if(fileHandle) setSaveStatus('unsaved');
     }
   };
 
   const handleDeleteTopic = (topicId: string) => {
-    const topicToDelete = portfolioData.topics.find(t => t.id === topicId);
+    const topicToDelete = portfolioData?.topics.find(t => t.id === topicId);
     if (window.confirm(`Are you sure you want to delete the topic "${topicToDelete?.name}" and all its entries?`)) {
-        const newTopics = portfolioData.topics.filter(t => t.id !== topicId);
+        const newTopics = portfolioData!.topics.filter(t => t.id !== topicId);
         
         const activeEntryWasInDeletedTopic = topicToDelete?.entries.some(e => e.id === activeEntryId);
 
         setPortfolioData({
-            ...portfolioData,
+            ...portfolioData!,
             topics: newTopics,
         });
-        if(fileHandle) setSaveStatus('unsaved');
 
         if (activeEntryWasInDeletedTopic) {
             setActiveEntryId(newTopics[0]?.entries[0]?.id || null);
@@ -391,33 +190,31 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
     setPortfolioData(currentData => {
-        const newTopics = currentData.topics.map(topic => {
+        const newTopics = currentData!.topics.map(topic => {
             if (topic.id === topicId) {
                 return { ...topic, entries: [newEntry, ...topic.entries] };
             }
             return topic;
         });
         return {
-          ...currentData,
+          ...currentData!,
           topics: newTopics,
         };
     });
-    if(fileHandle) setSaveStatus('unsaved');
     setActiveEntryId(newEntry.id);
   };
 
   const handleDeleteEntry = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
-      const newTopics = portfolioData.topics.map(topic => {
+      const newTopics = portfolioData!.topics.map(topic => {
         const updatedEntries = topic.entries.filter(entry => entry.id !== id);
         return { ...topic, entries: updatedEntries };
       });
 
       setPortfolioData({
-        ...portfolioData,
+        ...portfolioData!,
         topics: newTopics,
       });
-      if(fileHandle) setSaveStatus('unsaved');
 
       if (activeEntryId === id) {
         const firstEntry = newTopics.flatMap(t => t.entries)[0];
@@ -428,39 +225,37 @@ const App: React.FC = () => {
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
     setPortfolioData(currentData => {
-        const newTopics = currentData.topics.map(topic => ({
+        const newTopics = currentData!.topics.map(topic => ({
           ...topic,
           entries: topic.entries.map(entry =>
             entry.id === id ? { ...entry, ...updates } : entry
           )
         }));
-        return { ...currentData, topics: newTopics };
+        return { ...currentData!, topics: newTopics };
     });
-    if (fileHandle) {
-        setSaveStatus('unsaved');
-    }
-  }, [fileHandle]);
+  }, []);
 
   const handleDownload = () => {
+    if (!portfolioData) return;
     const dataStr = JSON.stringify(portfolioData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.download = 'portfolio-data.json';
     link.href = url;
-    document.body.appendChild(link); // For cross-browser compatibility
+    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link); // Clean up
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  const activeEntry = portfolioData.topics
+  const activeEntry = portfolioData?.topics
     .flatMap(topic => topic.entries)
     .find(e => e.id === activeEntryId);
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} saveStatus={saveStatus} accentColor={accentColor} theme={theme} />;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} />;
     }
     return <EmptyState />;
   }
@@ -476,18 +271,23 @@ const App: React.FC = () => {
       </div>
     );
   }
-
-  if (!fileHandle) {
+  
+  // Render welcome page if no project is loaded
+  if (!portfolioData) {
     return (
-      <WelcomePage 
-          onCreateProject={handleCreateNewProject} 
-          onTriggerUpload={handleImportProject} 
-      />
+      <>
+        <input type="file" ref={importInputRef} onChange={handleFileSelected} className="hidden" accept="application/json,.json" />
+        <WelcomePage 
+            onCreateProject={handleCreateNewProject} 
+            onTriggerUpload={handleImportProject} 
+        />
+      </>
     );
   }
 
   return (
     <div className="flex h-screen w-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+      <input type="file" ref={importInputRef} onChange={handleFileSelected} className="hidden" accept="application/json,.json" />
       <Sidebar
         topics={portfolioData.topics}
         activeEntryId={activeEntryId}
