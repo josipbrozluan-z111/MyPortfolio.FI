@@ -63,54 +63,40 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark' }> 
                 <button className="p-2 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
                     <TextColorIcon className="w-5 h-5" />
                 </button>
-                <div className="absolute top-full left-0 mt-1 bg-gray-200 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-3 space-y-3 z-20">
-                    {/* Theme Colors */}
-                    <div>
-                        <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-1">Theme</div>
-                        <div className="flex items-center gap-2">
-                             {THEME_COLORS.map(color => (
-                                <button
-                                    key={color.name}
-                                    title={color.name}
-                                    onClick={() => execCmd('foreColor', color.value)}
-                                    className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }}
-                                    aria-label={`Set text color to ${color.name}`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                    {/* Standard Colors */}
-                    <div>
-                         <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-1">Standard</div>
-                        <div className="grid grid-cols-5 gap-2">
-                            {STANDARD_COLORS.map(color => (
-                                <button
-                                    key={color.name}
-                                    title={color.name}
-                                    onClick={() => execCmd('foreColor', color.value)}
-                                    className="w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent"
-                                    style={{ backgroundColor: color.value }}
-                                    aria-label={`Set text color to ${color.name}`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                     {/* Monochrome Colors */}
-                    <div>
-                         <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-1">Grayscale</div>
-                        <div className="grid grid-cols-4 gap-2">
-                            {MONOCHROME_COLORS.map(color => (
-                                <button
-                                    key={color.name}
-                                    title={color.name}
-                                    onClick={() => execCmd('foreColor', color.value)}
-                                    className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }}
-                                    aria-label={`Set text color to ${color.name}`}
-                                />
-                            ))}
-                        </div>
+                <div className="absolute top-full left-0 mt-1 bg-gray-200 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
+                    <div className="flex items-center gap-2">
+                        {THEME_COLORS.map(color => (
+                            <button
+                                key={color.name}
+                                title={color.name}
+                                onClick={() => execCmd('foreColor', color.value)}
+                                className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                style={{ backgroundColor: color.value }}
+                                aria-label={`Set text color to ${color.name}`}
+                            />
+                        ))}
+                        <div className="h-6 w-px bg-gray-300/80 dark:bg-gray-600/80 mx-1"></div>
+                        {STANDARD_COLORS.map(color => (
+                            <button
+                                key={color.name}
+                                title={color.name}
+                                onClick={() => execCmd('foreColor', color.value)}
+                                className="w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent"
+                                style={{ backgroundColor: color.value }}
+                                aria-label={`Set text color to ${color.name}`}
+                            />
+                        ))}
+                        <div className="h-6 w-px bg-gray-300/80 dark:bg-gray-600/80 mx-1"></div>
+                        {MONOCHROME_COLORS.map(color => (
+                            <button
+                                key={color.name}
+                                title={color.name}
+                                onClick={() => execCmd('foreColor', color.value)}
+                                className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                style={{ backgroundColor: color.value }}
+                                aria-label={`Set text color to ${color.name}`}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
