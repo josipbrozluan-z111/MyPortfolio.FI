@@ -6,14 +6,19 @@ import EmptyState from './components/EmptyState';
 import { PortfolioData, PortfolioEntry, Topic } from './types';
 import { BookOpenIcon } from './components/Icons';
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 const App: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   const importInputRef = useRef<HTMLInputElement>(null);
+  // FIX: Pass undefined to useRef to fix "Expected 1 arguments, but got 0" error.
+  const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
 
   // --- Theme State ---
   const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
@@ -99,9 +104,21 @@ const App: React.FC = () => {
 
   // Auto-save to localStorage
   useEffect(() => {
-    // We only save if portfolioData is not null (i.e., a project is loaded/created)
     if (portfolioData) {
-      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+      // Clear any existing timeout to avoid resetting a new "saving" message
+      clearTimeout(saveStatusTimeoutRef.current);
+      setSaveStatus('saving');
+      try {
+        localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+        setSaveStatus('saved');
+        // Set a timeout to clear the 'saved' message after a few seconds
+        saveStatusTimeoutRef.current = window.setTimeout(() => {
+            setSaveStatus('idle');
+        }, 2000);
+      } catch (error) {
+        console.error("Failed to save to localStorage:", error);
+        setSaveStatus('error');
+      }
     }
   }, [portfolioData]);
 
@@ -268,7 +285,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} />;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} />;
     }
     return <EmptyState />;
   }

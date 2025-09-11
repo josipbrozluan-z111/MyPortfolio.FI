@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PortfolioEntry } from '../types';
 import { 
@@ -10,6 +8,8 @@ import {
     ImageIcon
 } from './Icons';
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 interface EditorProps {
   entry: PortfolioEntry;
   onUpdate: (id: string, updates: Partial<PortfolioEntry>) => void;
@@ -17,10 +17,11 @@ interface EditorProps {
   accentColor: string;
   theme: 'light' | 'dark';
   isSidebarCollapsed: boolean;
+  saveStatus: SaveStatus;
 }
 
-const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean }> = 
-({ onClick, onMouseDown, isActive, title, children, disabled }) => {
+const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean; className?: string }> = 
+({ onClick, onMouseDown, isActive, title, children, disabled, className }) => {
     const baseClasses = "p-1.5 rounded transition-colors";
     const activeClasses = "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200";
     const inactiveClasses = "hover:bg-black/10 dark:hover:bg-white/10";
@@ -34,7 +35,7 @@ const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouse
             onMouseDown={disabled ? undefined : finalOnMouseDown}
             onClick={disabled ? (e) => e.preventDefault() : undefined}
             disabled={disabled}
-            className={`${baseClasses} ${disabled ? disabledClasses : (isActive ? activeClasses : inactiveClasses)}`}
+            className={`${baseClasses} ${disabled ? disabledClasses : (isActive ? activeClasses : inactiveClasses)} ${className}`}
         >
             {children}
         </button>
@@ -74,6 +75,7 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
     };
     
     const updateToolbarState = useCallback(() => {
+        if (!editorRef.current) return;
         setIsBold(document.queryCommandState('bold'));
         setIsItalic(document.queryCommandState('italic'));
         setIsUnderline(document.queryCommandState('underline'));
@@ -91,334 +93,282 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             setFontSize(sizeValue);
         }
 
-    }, []);
+    }, [editorRef]);
 
     useEffect(() => {
+        const editor = editorRef.current;
         const handleSelectionChange = () => {
-            if (document.activeElement === editorRef.current) {
+            if (document.activeElement === editor) {
                 updateToolbarState();
             }
         };
         document.addEventListener('selectionchange', handleSelectionChange);
-        editorRef.current?.addEventListener('focus', updateToolbarState);
-        editorRef.current?.addEventListener('click', updateToolbarState);
-        editorRef.current?.addEventListener('keyup', updateToolbarState);
+        editor?.addEventListener('focus', updateToolbarState);
+        editor?.addEventListener('click', updateToolbarState);
+        editor?.addEventListener('keyup', updateToolbarState);
         return () => {
             document.removeEventListener('selectionchange', handleSelectionChange);
-            editorRef.current?.removeEventListener('focus', updateToolbarState);
-            editorRef.current?.removeEventListener('click', updateToolbarState);
-            editorRef.current?.removeEventListener('keyup', updateToolbarState);
+            editor?.removeEventListener('focus', updateToolbarState);
+            editor?.removeEventListener('click', updateToolbarState);
+            editor?.removeEventListener('keyup', updateToolbarState);
         }
     }, [updateToolbarState, editorRef]);
 
 
     const defaultTextColor = theme === 'dark' ? '#E5E7EB' : '#1F2937'; // gray-200 and gray-800
     const ALL_COLORS = [
-        { name: 'Accent', value: accentColor }, { name: 'Default Text', value: defaultTextColor }, { name: 'Red', value: '#EF4444' },
-        { name: 'Orange', value: '#F97316' }, { name: 'Green', value: '#10B981' }, { name: 'Blue', value: '#3B82F6' },
-        { name: 'Purple', value: '#8B5CF6' }, { name: 'White', value: '#FFFFFF' }, { name: 'Light Gray', value: '#9CA3AF' },
-        { name: 'Gray', value: '#6B7280' }, { name: 'Black', value: '#000000' },
+        { name: 'Accent', value: accentColor }, { name: 'Default Text', value: defaultTextColor },
+        '#ef4444', '#f97316', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef',
+        '#f43f5e', '#fca5a5', '#fdba74', '#bef264', '#86efac', '#67e8f9', '#93c5fd', '#c4b5fd', '#f0abfc',
+        '#ec4899', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827', '#000000',
     ];
 
-    const COLOR_ROW_1 = ALL_COLORS.slice(0, 6);
-    const COLOR_ROW_2 = ALL_COLORS.slice(6);
-
-    const handleLink = () => {
-        const url = prompt('Enter the URL:');
-        if (url) {
-            execCmd('createLink', url);
-        }
-    };
-
-    const handleFontSizeChange = (direction: 'increase' | 'decrease') => {
-        let newSize = fontSize;
-        if(direction === 'increase') newSize = Math.min(7, fontSize + 1);
-        if(direction === 'decrease') newSize = Math.max(1, fontSize - 1);
-        setFontSize(newSize);
-        execCmd('fontSize', newSize.toString());
-    }
-
-    const getAlignmentIcon = () => {
-        switch(alignment) {
-            case 'center': return <AlignCenterIcon />;
-            case 'right': return <AlignRightIcon />;
-            case 'justify': return <AlignJustifyIcon />;
-            default: return <AlignLeftIcon />;
-        }
-    }
+    const ColorPicker: React.FC<{ command: 'foreColor' | 'hiliteColor' }> = ({ command }) => (
+        <div className="relative group">
+            <ToolbarButton title={command === 'foreColor' ? "Text Color" : "Highlight Color"}>
+                {command === 'foreColor' ? <TextColorIcon /> : <HighlightIcon />}
+            </ToolbarButton>
+            <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block z-20">
+                <div className="flex flex-col gap-2 p-2">
+                    <div className="flex gap-2">
+                        {ALL_COLORS.slice(0, 10).map((color, index) => (
+                            <button key={index} onMouseDown={(e) => { e.preventDefault(); execCmd(command, typeof color === 'object' ? color.value : color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: typeof color === 'object' ? color.value : color }} title={typeof color === 'object' ? color.name : color}></button>
+                        ))}
+                    </div>
+                    <div className="flex gap-2">
+                        {ALL_COLORS.slice(10).map((color, index) => (
+                            <button key={index} onMouseDown={(e) => { e.preventDefault(); execCmd(command, typeof color === 'object' ? color.value : color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: typeof color === 'object' ? color.value : color }} title={typeof color === 'object' ? color.name : color}></button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
     
+    const AlignmentPicker = () => {
+      const icons: { [key: string]: React.ReactNode } = {
+        left: <AlignLeftIcon />,
+        center: <AlignCenterIcon />,
+        right: <AlignRightIcon />,
+        justify: <AlignJustifyIcon />,
+      };
+      const alignments = [
+          { name: 'left', command: 'justifyLeft', icon: <AlignLeftIcon /> },
+          { name: 'center', command: 'justifyCenter', icon: <AlignCenterIcon /> },
+          { name: 'right', command: 'justifyRight', icon: <AlignRightIcon /> },
+          { name: 'justify', command: 'justifyFull', icon: <AlignJustifyIcon /> },
+      ];
+      return (
+          <div className="relative group">
+              <button className="flex items-center gap-1 p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                  {icons[alignment]}
+                  <ChevronDownIcon className="w-4 h-4" />
+              </button>
+              <div className="absolute top-full left-0 mt-1 p-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block z-20">
+                  {alignments.map(item => (
+                      <button key={item.name} onMouseDown={(e) => { e.preventDefault(); execCmd(item.command); }} className="block w-full text-left p-2 rounded hover:bg-black/5 dark:hover:bg-white/5">
+                          {item.icon}
+                      </button>
+                  ))}
+              </div>
+          </div>
+      );
+    }
+
     return (
-        <div className="editor-toolbar p-1 border-b border-gray-200 dark:border-gray-700/70 flex items-center gap-0.5 flex-wrap bg-gray-50 dark:bg-gray-800/80 sticky top-0 backdrop-blur-sm z-10">
-            <ToolbarButton title="Search" disabled><SearchIcon /></ToolbarButton>
-            <ToolbarSeparator />
-
-            <ToolbarButton onClick={() => execCmd('undo')} title="Undo"><UndoIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('redo')} title="Redo"><RedoIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => window.print()} title="Print"><PrintIcon /></ToolbarButton>
-            <ToolbarButton title="Format Painter" disabled><FormatPainterIcon /></ToolbarButton>
-            <ToolbarSeparator />
-
-            <ToolbarDropdown label={<span className="text-sm">100%</span>} widthClass="w-28">
-                 {['50%', '75%', '100%', '125%', '150%'].map(zoom => (
-                    <button key={zoom} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10">{zoom}</button>
-                 ))}
-            </ToolbarDropdown>
-            <ToolbarSeparator />
-
-            <ToolbarDropdown label={<span className="text-sm w-24 truncate">Normal text</span>}>
-                <button onClick={() => execCmd('formatBlock', '<h1>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><h1>Heading 1</h1></button>
-                <button onClick={() => execCmd('formatBlock', '<h2>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><h2>Heading 2</h2></button>
-                <button onClick={() => execCmd('formatBlock', '<h3>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><h3>Heading 3</h3></button>
-                <button onClick={() => execCmd('formatBlock', '<p>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10">Paragraph</button>
-            </ToolbarDropdown>
-            <ToolbarSeparator />
-
-            <ToolbarDropdown label={<span className="text-sm w-24 truncate">{document.queryCommandValue('fontName').replace(/"/g, '') || 'Arial'}</span>}>
-                 {FONT_FAMILIES.map(font => (
-                    <button key={font} onClick={() => execCmd('fontName', font)} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10" style={{ fontFamily: font }}>{font}</button>
-                 ))}
-            </ToolbarDropdown>
-            <ToolbarSeparator />
-
-            <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded">
-                <ToolbarButton onClick={() => handleFontSizeChange('decrease')} title="Decrease font size"><MinusIcon className="w-4 h-4" /></ToolbarButton>
-                <span className="w-8 text-center text-sm px-1 dark:text-gray-200">{FONT_SIZE_MAP[fontSize] || '12'}</span>
-                <ToolbarButton onClick={() => handleFontSizeChange('increase')} title="Increase font size"><PlusIcon className="w-4 h-4" /></ToolbarButton>
-            </div>
-            <ToolbarSeparator />
-
-            <ToolbarButton onClick={() => execCmd('bold')} isActive={isBold} title="Bold"><BoldIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('italic')} isActive={isItalic} title="Italic"><ItalicIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('underline')} isActive={isUnderline} title="Underline"><UnderlineIcon /></ToolbarButton>
+        <div className="editor-toolbar flex items-center gap-1 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-300/50 dark:border-gray-700/50 sticky top-0 z-10 backdrop-blur-sm">
+            <ToolbarButton title="Undo" onClick={() => execCmd('undo')}><UndoIcon /></ToolbarButton>
+            <ToolbarButton title="Redo" onClick={() => execCmd('redo')}><RedoIcon /></ToolbarButton>
+            <ToolbarButton title="Print" onClick={() => window.print()}><PrintIcon /></ToolbarButton>
             
-             <div className="relative group">
-                <ToolbarButton onClick={() => {}} title="Text Color"><TextColorIcon /></ToolbarButton>
-                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                            {COLOR_ROW_1.map(color => (
-                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
-                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            {COLOR_ROW_2.map(color => (
-                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
-                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-             <div className="relative group">
-                <ToolbarButton onClick={() => {}} title="Highlight Color"><HighlightIcon /></ToolbarButton>
-                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                            {COLOR_ROW_1.map(color => (
-                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
-                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            {COLOR_ROW_2.map(color => (
-                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
-                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                    style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
             <ToolbarSeparator />
+            <ToolbarButton title="Bold" onClick={() => execCmd('bold')} isActive={isBold}><BoldIcon /></ToolbarButton>
+            <ToolbarButton title="Italic" onClick={() => execCmd('italic')} isActive={isItalic}><ItalicIcon /></ToolbarButton>
+            <ToolbarButton title="Underline" onClick={() => execCmd('underline')} isActive={isUnderline}><UnderlineIcon /></ToolbarButton>
+            <ColorPicker command="foreColor" />
+            <ColorPicker command="hiliteColor" />
+            <ToolbarSeparator />
+
+            <AlignmentPicker />
+            <ToolbarButton title="Bulleted List" onClick={() => execCmd('insertUnorderedList')}><ListBulletedIcon /></ToolbarButton>
+            <ToolbarButton title="Numbered List" onClick={() => execCmd('insertOrderedList')}><ListNumberedIcon /></ToolbarButton>
+            <ToolbarButton title="Decrease Indent" onClick={() => execCmd('outdent')}><OutdentIcon /></ToolbarButton>
+            <ToolbarButton title="Increase Indent" onClick={() => execCmd('indent')}><IndentIcon /></ToolbarButton>
+
+            <ToolbarSeparator />
+
+            <ToolbarButton title="Insert Image" onClick={onTriggerImageUpload}><ImageIcon /></ToolbarButton>
+            <ToolbarButton title="Insert Link" onClick={() => {const url = prompt('Enter a URL:'); if(url) execCmd('createLink', url);}}><LinkIcon /></ToolbarButton>
             
-            <ToolbarButton onClick={handleLink} title="Insert Link"><LinkIcon /></ToolbarButton>
-            <ToolbarButton onClick={onTriggerImageUpload} title="Insert Image"><ImageIcon /></ToolbarButton>
-            <ToolbarButton title="Add Comment" disabled><AddCommentIcon /></ToolbarButton>
             <ToolbarSeparator />
-
-            <ToolbarDropdown label={getAlignmentIcon()}>
-                <button onClick={() => execCmd('justifyLeft')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignLeftIcon /></button>
-                <button onClick={() => execCmd('justifyCenter')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignCenterIcon /></button>
-                <button onClick={() => execCmd('justifyRight')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignRightIcon /></button>
-                <button onClick={() => execCmd('justifyFull')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignJustifyIcon /></button>
-            </ToolbarDropdown>
-            
-            <ToolbarButton title="Line Spacing" disabled><LineSpacingIcon /></ToolbarButton>
-            <ToolbarButton title="Checklist" disabled><ChecklistIcon /></ToolbarButton>
-            <ToolbarSeparator />
-
-            <ToolbarButton onClick={() => execCmd('insertUnorderedList')} title="Bulleted List"><ListBulletedIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('insertOrderedList')} title="Numbered List"><ListNumberedIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('outdent')} title="Decrease Indent"><OutdentIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('indent')} title="Increase Indent"><IndentIcon /></ToolbarButton>
-            <ToolbarSeparator />
-
-            <ToolbarButton onClick={() => execCmd('removeFormat')} title="Clear Formatting"><ClearFormattingIcon /></ToolbarButton>
-            <ToolbarButton title="More Options" disabled><MoreVerticalIcon /></ToolbarButton>
+            <ToolbarButton title="Clear Formatting" onClick={() => execCmd('removeFormat')}><ClearFormattingIcon /></ToolbarButton>
         </div>
     );
 };
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed }) => {
-  const [title, setTitle] = useState(entry.title);
+
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed, saveStatus }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const contentDebounceTimer = useRef<number | null>(null);
   
+  const updateEntry = useCallback(
+    (updates: Partial<PortfolioEntry>) => {
+        onUpdate(entry.id, updates);
+    },
+    [entry.id, onUpdate]
+  );
+  
+  const debouncedUpdate = useRef(
+    ((callback: (updates: Partial<PortfolioEntry>) => void, delay: number) => {
+      let timeout: number;
+      return (updates: Partial<PortfolioEntry>) => {
+        clearTimeout(timeout);
+        timeout = window.setTimeout(() => {
+          callback(updates);
+        }, delay);
+      };
+    })(updateEntry, 1000)
+  ).current;
+
   useEffect(() => {
-    setTitle(entry.title);
     if (editorRef.current && editorRef.current.innerHTML !== entry.content) {
-        editorRef.current.innerHTML = entry.content;
+      editorRef.current.innerHTML = entry.content;
     }
-  }, [entry.id, entry.title, entry.content]);
+    if (titleInputRef.current && titleInputRef.current.value !== entry.title) {
+        titleInputRef.current.value = entry.title;
+    }
+  }, [entry]);
 
   const handleContentChange = () => {
-    if (contentDebounceTimer.current) {
-      clearTimeout(contentDebounceTimer.current);
-    }
-    contentDebounceTimer.current = window.setTimeout(() => {
-      if (editorRef.current) {
-        onUpdate(entry.id, { content: editorRef.current.innerHTML });
-      }
-    }, 500); // 500ms delay for debouncing
-  };
-
-  useEffect(() => {
-    // Cleanup timer on component unmount
-    return () => {
-      if (contentDebounceTimer.current) {
-        clearTimeout(contentDebounceTimer.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (title !== entry.title) {
-        onUpdate(entry.id, { title });
-      }
-    }, 500);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [title, entry.id, entry.title, onUpdate]);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Tab') {
-      event.preventDefault(); // Prevent default tab behavior (focus change)
-
-      if (event.shiftKey) {
-        // Handle Shift + Tab for outdenting
-        document.execCommand('outdent', false);
-      } else {
-        // Handle Tab for indenting by inserting four non-breaking spaces
-        document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
-      }
-    }
-  };
-
-  const insertImage = (base64Data: string) => {
     if (editorRef.current) {
-      editorRef.current.focus();
-      const imgHtml = `<img src="${base64Data}" />`;
-      document.execCommand('insertHTML', false, imgHtml);
-    }
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-          insertImage(result);
-          handleContentChange(); // Trigger debounced save after image insert
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-    if (event.target) {
-      event.target.value = '';
-    }
-  };
-
-  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = event.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith('image/')) {
-        event.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result;
-            if (typeof result === 'string') {
-              insertImage(result);
-              handleContentChange(); // Trigger debounced save after image insert
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-        return;
-      }
+      debouncedUpdate({ content: editorRef.current.innerHTML });
     }
   };
   
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      debouncedUpdate({ title: e.target.value });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            document.execCommand('outdent');
+        } else {
+            document.execCommand('indent');
+        }
+    }
+  }
+
+  const compressAndInsertImage = useCallback((file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 1024;
+              const scaleSize = MAX_WIDTH / img.width;
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              // Get the compressed base64 string
+              const dataUrl = canvas.toDataURL(file.type, 0.8); // 80% quality
+              
+              document.execCommand('insertImage', false, dataUrl);
+              handleContentChange();
+          };
+          img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+  }, []);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      compressAndInsertImage(file);
+    }
+    e.target.value = ''; // Reset input
+  };
+  
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+              const file = items[i].getAsFile();
+              if(file) {
+                  e.preventDefault();
+                  compressAndInsertImage(file);
+                  return;
+              }
+          }
+      }
+  };
+
+  const getSaveStatusMessage = () => {
+    switch (saveStatus) {
+        case 'saving':
+            return <p className="text-sm text-gray-500 dark:text-gray-400">Saving...</p>;
+        case 'saved':
+            return <p className="text-sm text-green-600 dark:text-green-400">Saved</p>;
+        case 'error':
+            return <p className="text-sm text-red-500 dark:text-red-400" title="Could not save. The content might be too large for browser storage.">Error saving</p>;
+        default:
+            return null;
+    }
+  };
+
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      <input
-        type="file"
-        ref={imageInputRef}
-        onChange={handleImageUpload}
-        className="hidden"
-        accept="image/*"
+    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
+      <EditorToolbar 
+        accentColor={accentColor} 
+        theme={theme} 
+        editorRef={editorRef} 
+        onTriggerImageUpload={() => imageInputRef.current?.click()}
       />
-      {/* Editor Header */}
-      <div className="editor-header flex-shrink-0 p-4 border-b border-gray-300/70 dark:border-gray-700/50 flex items-center justify-between bg-gray-100/30 dark:bg-gray-800/30">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Entry Title"
-          className="bg-transparent text-xl font-bold w-full focus:outline-none text-gray-900 dark:text-white"
-        />
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => onDelete(entry.id)}
-            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-            aria-label="Delete entry"
-          >
-            <TrashIcon className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-      
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <EditorToolbar 
-            accentColor={accentColor} 
-            theme={theme} 
-            editorRef={editorRef} 
-            onTriggerImageUpload={() => imageInputRef.current?.click()}
-        />
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex-grow overflow-y-auto">
+        <div className={`mx-auto ${isSidebarCollapsed ? 'max-w-4xl' : 'max-w-3xl'} p-4`}>
+            <div className="editor-header flex justify-between items-center mb-4">
+                <input
+                    ref={titleInputRef}
+                    type="text"
+                    defaultValue={entry.title}
+                    onChange={handleTitleChange}
+                    placeholder="Untitled Entry"
+                    className="text-4xl font-bold bg-transparent focus:outline-none w-full text-gray-900 dark:text-white"
+                />
+                 <div className="flex items-center gap-4">
+                    {getSaveStatusMessage()}
+                    <button onClick={() => onDelete(entry.id)} title="Delete Entry" className="p-2 text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-400 rounded-full transition-colors">
+                        <TrashIcon className="w-5 h-5"/>
+                    </button>
+                 </div>
+            </div>
+
             <div
                 ref={editorRef}
-                contentEditable={true}
+                className="prose-editor focus:outline-none p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm min-h-[calc(100vh-200px)]"
+                contentEditable
                 onInput={handleContentChange}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                className={`prose-editor mx-auto p-6 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'max-w-6xl' : 'max-w-4xl'}`}
-                spellCheck="true"
+                suppressContentEditableWarning={true}
+                aria-label="Portfolio entry content"
             />
         </div>
       </div>
+      <input 
+        type="file" 
+        ref={imageInputRef} 
+        onChange={handleImageUpload}
+        className="hidden" 
+        accept="image/*" 
+      />
     </div>
   );
 };
