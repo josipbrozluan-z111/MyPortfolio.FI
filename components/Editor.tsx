@@ -266,6 +266,20 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
       clearTimeout(handler);
     };
   }, [title, entry.id, entry.title, onUpdate]);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab') {
+      event.preventDefault(); // Prevent default tab behavior (focus change)
+
+      if (event.shiftKey) {
+        // Handle Shift + Tab for outdenting
+        document.execCommand('outdent', false);
+      } else {
+        // Handle Tab for indenting by inserting four non-breaking spaces
+        document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+      }
+    }
+  };
   
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
@@ -297,7 +311,8 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
                 ref={editorRef}
                 contentEditable={true}
                 onInput={handleContentChange}
-                className="prose-editor max-w-4xl mx-auto p-8 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none"
+                onKeyDown={handleKeyDown}
+                className="prose-editor max-w-4xl mx-auto p-6 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none"
                 spellCheck="true"
             />
         </div>
