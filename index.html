@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portfolio Writer</title>
+    <script>
+      // Sets theme from localStorage before React loads to prevent FOUC
+      (function() {
+        try {
+          // Matches the logic in App.tsx: default to dark theme if nothing is set
+          if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {

@@ -18,20 +18,14 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark' }> 
 
     const defaultTextColor = theme === 'dark' ? '#E5E7EB' : '#1F2937'; // gray-200 and gray-800
 
-    const THEME_COLORS = [
+    const ALL_COLORS = [
         { name: 'Accent', value: accentColor },
         { name: 'Default Text', value: defaultTextColor },
-    ];
-
-    const STANDARD_COLORS = [
         { name: 'Red', value: '#EF4444' },
         { name: 'Orange', value: '#F97316' },
         { name: 'Green', value: '#10B981' },
         { name: 'Blue', value: '#3B82F6' },
         { name: 'Purple', value: '#8B5CF6' },
-    ];
-
-    const MONOCHROME_COLORS = [
         { name: 'White', value: '#FFFFFF' },
         { name: 'Light Gray', value: '#9CA3AF' },
         { name: 'Gray', value: '#6B7280' },
@@ -64,35 +58,13 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark' }> 
                     <TextColorIcon className="w-5 h-5" />
                 </button>
                 <div className="absolute top-full left-0 mt-1 bg-gray-200 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
-                    <div className="flex items-center gap-2">
-                        {THEME_COLORS.map(color => (
+                    <div className="flex items-center gap-1.5 flex-wrap w-max max-w-xs">
+                         {ALL_COLORS.map(color => (
                             <button
                                 key={color.name}
                                 title={color.name}
                                 onClick={() => execCmd('foreColor', color.value)}
-                                className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                style={{ backgroundColor: color.value }}
-                                aria-label={`Set text color to ${color.name}`}
-                            />
-                        ))}
-                        <div className="h-6 w-px bg-gray-300/80 dark:bg-gray-600/80 mx-1"></div>
-                        {STANDARD_COLORS.map(color => (
-                            <button
-                                key={color.name}
-                                title={color.name}
-                                onClick={() => execCmd('foreColor', color.value)}
-                                className="w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent"
-                                style={{ backgroundColor: color.value }}
-                                aria-label={`Set text color to ${color.name}`}
-                            />
-                        ))}
-                        <div className="h-6 w-px bg-gray-300/80 dark:bg-gray-600/80 mx-1"></div>
-                        {MONOCHROME_COLORS.map(color => (
-                            <button
-                                key={color.name}
-                                title={color.name}
-                                onClick={() => execCmd('foreColor', color.value)}
-                                className={`w-7 h-7 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
                                 style={{ backgroundColor: color.value }}
                                 aria-label={`Set text color to ${color.name}`}
                             />
