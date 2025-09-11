@@ -73,6 +73,40 @@
       .prose-editor h2 { font-size: 1.5em; }
       .prose-editor h3 { font-size: 1.25em; }
       .prose-editor p { margin-bottom: 1em; }
+
+      /* Print-specific styles */
+      @media print {
+        /* Hide non-content elements */
+        .sidebar, .editor-header, .editor-toolbar {
+          display: none;
+        }
+
+        /* Reset body and layout containers for printing */
+        body, #root > div {
+          display: block; /* Override flex layout */
+        }
+        
+        main {
+          width: 100%;
+        }
+        
+        /* Reset editor styles for printing */
+        .prose-editor {
+          max-width: 100%;
+          margin: 0;
+          padding: 0;
+          box-shadow: none;
+          border: none;
+          color: #000 !important;
+          background: #fff !important;
+        }
+
+        /* Force all children elements inside the editor to have black text */
+        .prose-editor * {
+          color: #000 !important;
+          background-color: transparent !important;
+        }
+      }
     </style>
   <script type="importmap">
 {

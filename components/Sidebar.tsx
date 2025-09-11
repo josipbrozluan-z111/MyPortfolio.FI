@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   return (
-    <div className="w-1/4 max-w-sm bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-300/50 dark:border-gray-700/50 flex flex-col h-full">
+    <div className="sidebar w-1/4 max-w-sm bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-300/50 dark:border-gray-700/50 flex flex-col h-full">
       <div className="p-4 border-b border-gray-300/50 dark:border-gray-700/50">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BookOpenIcon className="w-7 h-7 accent-text"/>

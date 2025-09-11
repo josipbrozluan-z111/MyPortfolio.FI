@@ -5,7 +5,7 @@ import {
     TrashIcon, HighlightIcon, TextColorIcon, UndoIcon, RedoIcon, PrintIcon, ChevronDownIcon, 
     BoldIcon, ItalicIcon, UnderlineIcon, LinkIcon, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, 
     AlignJustifyIcon, ListBulletedIcon, ListNumberedIcon, OutdentIcon, IndentIcon, ClearFormattingIcon,
-    PlusIcon, MinusIcon
+    PlusIcon, MinusIcon, SearchIcon, FormatPainterIcon, AddCommentIcon, LineSpacingIcon, ChecklistIcon, MoreVerticalIcon
 } from './Icons';
 
 interface EditorProps {
@@ -16,16 +16,27 @@ interface EditorProps {
   theme: 'light' | 'dark';
 }
 
-const ToolbarButton: React.FC<{ onClick: () => void; isActive?: boolean; title: string; children: React.ReactNode }> = 
-({ onClick, isActive, title, children }) => (
-    <button
-        title={title}
-        onMouseDown={e => { e.preventDefault(); onClick(); }}
-        className={`p-2 rounded ${isActive ? 'bg-black/20 dark:bg-white/20' : 'hover:bg-black/10 dark:hover:bg-white/10'} transition-colors`}
-    >
-        {children}
-    </button>
-);
+const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean }> = 
+({ onClick, onMouseDown, isActive, title, children, disabled }) => {
+    const baseClasses = "p-1.5 rounded transition-colors";
+    const activeClasses = "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200";
+    const inactiveClasses = "hover:bg-black/10 dark:hover:bg-white/10";
+    const disabledClasses = "text-gray-400 dark:text-gray-500 cursor-not-allowed";
+
+    const finalOnMouseDown = onMouseDown ? onMouseDown : (e: React.MouseEvent) => { e.preventDefault(); if(onClick) onClick(e); };
+
+    return (
+        <button
+            title={title}
+            onMouseDown={disabled ? undefined : finalOnMouseDown}
+            onClick={disabled ? (e) => e.preventDefault() : undefined}
+            disabled={disabled}
+            className={`${baseClasses} ${disabled ? disabledClasses : (isActive ? activeClasses : inactiveClasses)}`}
+        >
+            {children}
+        </button>
+    );
+};
 
 const ToolbarDropdown: React.FC<{ label: React.ReactNode; children: React.ReactNode; widthClass?: string; }> = ({ label, children, widthClass = "w-40" }) => (
     <div className="relative group">
@@ -33,19 +44,25 @@ const ToolbarDropdown: React.FC<{ label: React.ReactNode; children: React.ReactN
             {label}
             <ChevronDownIcon className="w-4 h-4" />
         </button>
-        <div className={`absolute top-full left-0 mt-1 bg-gray-50 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block ${widthClass} z-20`}>
+        <div className={`absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block ${widthClass} z-20`}>
             {children}
         </div>
     </div>
 );
 
+const ToolbarSeparator: React.FC = () => (
+    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+);
+
 const FONT_FAMILIES = ['Arial', 'Verdana', 'Times New Roman', 'Georgia', 'Courier New', 'Lucida Console'];
+const FONT_SIZE_MAP: { [key: number]: number } = { 1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36 };
 
 const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', editorRef: React.RefObject<HTMLDivElement> }> = ({ accentColor, theme, editorRef }) => {
     const [isBold, setIsBold] = useState(false);
     const [isItalic, setIsItalic] = useState(false);
     const [isUnderline, setIsUnderline] = useState(false);
     const [alignment, setAlignment] = useState('left');
+    const [fontSize, setFontSize] = useState(3);
     
     const execCmd = (command: string, value?: string) => {
         document.execCommand(command, false, value);
@@ -65,6 +82,12 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
         else if (isRight) setAlignment('right');
         else if (isJustify) setAlignment('justify');
         else setAlignment('left');
+
+        const sizeValue = parseInt(document.queryCommandValue('fontSize'), 10);
+        if (!isNaN(sizeValue) && sizeValue >= 1 && sizeValue <= 7) {
+            setFontSize(sizeValue);
+        }
+
     }, []);
 
     useEffect(() => {
@@ -74,7 +97,15 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             }
         };
         document.addEventListener('selectionchange', handleSelectionChange);
-        return () => document.removeEventListener('selectionchange', handleSelectionChange);
+        editorRef.current?.addEventListener('focus', updateToolbarState);
+        editorRef.current?.addEventListener('click', updateToolbarState);
+        editorRef.current?.addEventListener('keyup', updateToolbarState);
+        return () => {
+            document.removeEventListener('selectionchange', handleSelectionChange);
+            editorRef.current?.removeEventListener('focus', updateToolbarState);
+            editorRef.current?.removeEventListener('click', updateToolbarState);
+            editorRef.current?.removeEventListener('keyup', updateToolbarState);
+        }
     }, [updateToolbarState, editorRef]);
 
 
@@ -92,14 +123,41 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             execCmd('createLink', url);
         }
     };
+
+    const handleFontSizeChange = (direction: 'increase' | 'decrease') => {
+        let newSize = fontSize;
+        if(direction === 'increase') newSize = Math.min(7, fontSize + 1);
+        if(direction === 'decrease') newSize = Math.max(1, fontSize - 1);
+        setFontSize(newSize);
+        execCmd('fontSize', newSize.toString());
+    }
+
+    const getAlignmentIcon = () => {
+        switch(alignment) {
+            case 'center': return <AlignCenterIcon />;
+            case 'right': return <AlignRightIcon />;
+            case 'justify': return <AlignJustifyIcon />;
+            default: return <AlignLeftIcon />;
+        }
+    }
     
     return (
-        <div className="p-1 border-b border-gray-300/70 dark:border-gray-700/50 flex items-center gap-1 flex-wrap bg-gray-100 dark:bg-gray-800/80 sticky top-0 backdrop-blur-sm z-10">
+        <div className="editor-toolbar p-1 border-b border-gray-200 dark:border-gray-700/70 flex items-center gap-0.5 flex-wrap bg-gray-50 dark:bg-gray-800/80 sticky top-0 backdrop-blur-sm z-10">
+            <ToolbarButton title="Search" disabled><SearchIcon /></ToolbarButton>
+            <ToolbarSeparator />
+
             <ToolbarButton onClick={() => execCmd('undo')} title="Undo"><UndoIcon /></ToolbarButton>
             <ToolbarButton onClick={() => execCmd('redo')} title="Redo"><RedoIcon /></ToolbarButton>
             <ToolbarButton onClick={() => window.print()} title="Print"><PrintIcon /></ToolbarButton>
-            
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <ToolbarButton title="Format Painter" disabled><FormatPainterIcon /></ToolbarButton>
+            <ToolbarSeparator />
+
+            <ToolbarDropdown label={<span className="text-sm">100%</span>} widthClass="w-28">
+                 {['50%', '75%', '100%', '125%', '150%'].map(zoom => (
+                    <button key={zoom} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10">{zoom}</button>
+                 ))}
+            </ToolbarDropdown>
+            <ToolbarSeparator />
 
             <ToolbarDropdown label={<span className="text-sm w-24 truncate">Normal text</span>}>
                 <button onClick={() => execCmd('formatBlock', '<h1>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><h1>Heading 1</h1></button>
@@ -107,16 +165,21 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
                 <button onClick={() => execCmd('formatBlock', '<h3>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><h3>Heading 3</h3></button>
                 <button onClick={() => execCmd('formatBlock', '<p>')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10">Paragraph</button>
             </ToolbarDropdown>
+            <ToolbarSeparator />
 
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-
-            <ToolbarDropdown label={<span className="text-sm w-24 truncate">Arial</span>}>
+            <ToolbarDropdown label={<span className="text-sm w-24 truncate">{document.queryCommandValue('fontName').replace(/"/g, '') || 'Arial'}</span>}>
                  {FONT_FAMILIES.map(font => (
                     <button key={font} onClick={() => execCmd('fontName', font)} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10" style={{ fontFamily: font }}>{font}</button>
                  ))}
             </ToolbarDropdown>
+            <ToolbarSeparator />
 
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded">
+                <ToolbarButton onClick={() => handleFontSizeChange('decrease')} title="Decrease font size"><MinusIcon className="w-4 h-4" /></ToolbarButton>
+                <span className="w-8 text-center text-sm px-1 dark:text-gray-200">{FONT_SIZE_MAP[fontSize] || '12'}</span>
+                <ToolbarButton onClick={() => handleFontSizeChange('increase')} title="Increase font size"><PlusIcon className="w-4 h-4" /></ToolbarButton>
+            </div>
+            <ToolbarSeparator />
 
             <ToolbarButton onClick={() => execCmd('bold')} isActive={isBold} title="Bold"><BoldIcon /></ToolbarButton>
             <ToolbarButton onClick={() => execCmd('italic')} isActive={isItalic} title="Italic"><ItalicIcon /></ToolbarButton>
@@ -124,11 +187,11 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Text Color"><TextColorIcon /></ToolbarButton>
-                <div className="absolute top-full left-0 mt-1 bg-gray-50 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
                     <div className="grid grid-cols-6 gap-1.5">
                          {ALL_COLORS.map(color => (
                             <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
-                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
                                 style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
                         ))}
                     </div>
@@ -136,38 +199,41 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             </div>
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Highlight Color"><HighlightIcon /></ToolbarButton>
-                 <div className="absolute top-full left-0 mt-1 bg-gray-50 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
+                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
                     <div className="grid grid-cols-6 gap-1.5">
                          {ALL_COLORS.map(color => (
                             <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
-                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
+                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
                         ))}
                     </div>
                 </div>
             </div>
-
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <ToolbarSeparator />
             
             <ToolbarButton onClick={handleLink} title="Insert Link"><LinkIcon /></ToolbarButton>
-            
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <ToolbarButton title="Add Comment" disabled><AddCommentIcon /></ToolbarButton>
+            <ToolbarSeparator />
 
-            <ToolbarButton onClick={() => execCmd('justifyLeft')} isActive={alignment === 'left'} title="Align Left"><AlignLeftIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('justifyCenter')} isActive={alignment === 'center'} title="Align Center"><AlignCenterIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('justifyRight')} isActive={alignment === 'right'} title="Align Right"><AlignRightIcon /></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('justifyFull')} isActive={alignment === 'justify'} title="Align Justify"><AlignJustifyIcon /></ToolbarButton>
+            <ToolbarDropdown label={getAlignmentIcon()}>
+                <button onClick={() => execCmd('justifyLeft')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignLeftIcon /></button>
+                <button onClick={() => execCmd('justifyCenter')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignCenterIcon /></button>
+                <button onClick={() => execCmd('justifyRight')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignRightIcon /></button>
+                <button onClick={() => execCmd('justifyFull')} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-black/10 dark:hover:bg-white/10"><AlignJustifyIcon /></button>
+            </ToolbarDropdown>
             
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <ToolbarButton title="Line Spacing" disabled><LineSpacingIcon /></ToolbarButton>
+            <ToolbarButton title="Checklist" disabled><ChecklistIcon /></ToolbarButton>
+            <ToolbarSeparator />
 
             <ToolbarButton onClick={() => execCmd('insertUnorderedList')} title="Bulleted List"><ListBulletedIcon /></ToolbarButton>
             <ToolbarButton onClick={() => execCmd('insertOrderedList')} title="Numbered List"><ListNumberedIcon /></ToolbarButton>
             <ToolbarButton onClick={() => execCmd('outdent')} title="Decrease Indent"><OutdentIcon /></ToolbarButton>
             <ToolbarButton onClick={() => execCmd('indent')} title="Increase Indent"><IndentIcon /></ToolbarButton>
-
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <ToolbarSeparator />
 
             <ToolbarButton onClick={() => execCmd('removeFormat')} title="Clear Formatting"><ClearFormattingIcon /></ToolbarButton>
+            <ToolbarButton title="More Options" disabled><MoreVerticalIcon /></ToolbarButton>
         </div>
     );
 };
@@ -204,7 +270,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Editor Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-300/70 dark:border-gray-700/50 flex items-center justify-between bg-gray-100/30 dark:bg-gray-800/30">
+      <div className="editor-header flex-shrink-0 p-4 border-b border-gray-300/70 dark:border-gray-700/50 flex items-center justify-between bg-gray-100/30 dark:bg-gray-800/30">
         <input
           type="text"
           value={title}

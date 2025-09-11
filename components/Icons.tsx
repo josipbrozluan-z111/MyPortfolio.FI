@@ -68,115 +68,146 @@ export const MoonIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-
 );
 
 // Editor Icons
+export const SearchIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
 export const UndoIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10v4h4L3 10zm10.25-2.75a7.25 7.25 0 00-7.25 7.25H3A9.25 9.25 0 0113.25 5a9.21 9.21 0 014.5 1.22l-1.54 1.54A7.22 7.22 0 0013.25 7.25z" />
     </svg>
 );
 
 export const RedoIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m15 15 6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 10v4h-4l4-4zm-10.25-2.75A7.25 7.25 0 0120.5 14.5h2.75A9.25 9.25 0 0010.75 5a9.21 9.21 0 00-4.5 1.22l1.54 1.54A7.22 7.22 0 0110.75 7.25z" />
     </svg>
 );
 
 export const PrintIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0c1.291.243 2.268.635 3.056 1.085A1.125 1.125 0 0 1 21 20.25a1.125 1.125 0 0 1-1.125 1.125H4.125A1.125 1.125 0 0 1 3 20.25a1.125 1.125 0 0 1 .781-1.085c.788-.45 1.765-.842 3.056-1.085m0 0a42.023 42.023 0 0 0-4.16-1.173M12 10.5h.008v.008H12v-.008Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75a2.25 2.25 0 0 1 2.25 2.25v3.75a2.25 2.25 0 0 1-4.5 0V6A2.25 2.25 0 0 1 12 3.75Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
     </svg>
 );
 
-export const BoldIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path d="M9.25 3.5a.75.75 0 0 0-1.5 0V6h-1a.75.75 0 0 0-1.5 0v1.5h1.5V10h-1.5V8.5h-1.5V10h-1a.75.75 0 0 0-1.5 0v1.5h1.5V14h-1.5v-1.5h-1.5V14a.75.75 0 0 0 .75.75h4.5a.75.75 0 0 0 .75-.75V12h1.25a2.75 2.75 0 0 0 0-5.5H8.5V4.25a.75.75 0 0 0-.75-.75h-1.5v1.5h1.5V6h-1.5v1.5h1.5v2.5h2.75a1.25 1.25 0 0 1 0 2.5H8.5V12h4.5v2.5H6.25V12h-1.5v1.5H3.25a.75.75 0 0 0-.75.75v1.5c0 .414.336.75.75.75h4.5a2.25 2.25 0 0 0 2.25-2.25V12h1.25a4.25 4.25 0 0 0 0-8.5H9.25V3.5Z" />
+export const FormatPainterIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M17.25,5.32L13.25,1.32L12,2.57L16,6.57L17.25,5.32M6,14.5L13.5,7L17,10.5L9.5,18H6V14.5M18,2H15L11.5,5.5L2,15V21H8L18.5,10.5L22,7V4H18V2Z" />
+  </svg>
+);
+
+export const BoldIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5", ...props }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
+        <path d="M15.5,15.5H12V18H10V15.5H7.5V13.5H10V11.5H7.5V9.5H10V6H12V9.5H14.5A2,2 0 0,1 16.5,11.5A2,2 0 0,1 14.5,13.5H12V15.5H15.5M12,11.5H14.5V13.5H12V11.5Z" />
     </svg>
 );
 
-export const ItalicIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path d="M12.25 3.5a.75.75 0 0 0-1.5 0v1.164l-3.04-1.298a.75.75 0 0 0-.96.39L4.015 9.25a.75.75 0 0 0 .39.96l3.04 1.298V14h-1.5a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0H9v-1.164l3.04 1.298a.75.75 0 0 0 .96-.39l2.735-5.49a.75.75 0 0 0-.39-.96L12.25 7.25V4.25a.75.75 0 0 0-.75-.75h-1.5v1.5h1.5v2.336l2.303.98.007-.014-2.103 4.22-3.04-1.298v-2.34L11.5 9.243l-2.1-4.215 3.04-1.298V5h1.5a.75.75 0 0 0 1.5 0V3.5a.75.75 0 0 0-.75-.75h-3Z" />
+export const ItalicIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5", ...props }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
+        <path d="M10,4V7H12.21L8.79,15H6V18H14V15H11.79L15.21,7H18V4H10Z" />
     </svg>
 );
 
-export const UnderlineIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path d="M4 15.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 0-1h-11a.5.5 0 0 0-.5.5zM4.5 4a.5.5 0 0 0-.5.5v7.268a2.5 2.5 0 0 0 5 0V4.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v7.268a1.5 1.5 0 1 1-3 0V4.5a.5.5 0 0 0-.5-.5h-1zM11 4.5a.5.5 0 0 0-.5.5v7.268a2.5 2.5 0 1 0 5 0V4.5a.5.5 0 0 0-1 0v7.268a1.5 1.5 0 1 1-3 0V4.5a.5.5 0 0 0-.5-.5h-1z" />
+export const UnderlineIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5", ...props }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} {...props}>
+        <path d="M5,21H19V19H5V21M12,17A6,6 0 0,0 18,11V3H15.5V11A3.5,3.5 0 0,1 12,14.5A3.5,3.5 0 0,1 8.5,11V3H6V11A6,6 0 0,0 12,17Z" />
     </svg>
 );
 
 export const TextColorIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path d="M9.25 3.5a.75.75 0 0 0-1.5 0V4h-1.5a.75.75 0 0 0 0 1.5h1.5v8.25a.75.75 0 0 0 1.5 0V5.5h1.5a.75.75 0 0 0 0-1.5h-1.5V3.5Z" />
-        <path d="M3 15.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 0-1h-13a.5.5 0 0 0-.5.5Z" />
-        <path d="M15.75 10.75a.75.75 0 0 0-1.5 0v3h-1.5a.75.75 0 0 0 0 1.5h1.5V16h-3.25a.75.75 0 0 0 0 1.5h3.25v.75a.75.75 0 0 0 1.5 0V16h1.5a.75.75 0 0 0 0-1.5h-1.5v-3.5Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M9.62,12L12,5.67L14.37,12M11,3L5.5,17H7.5L8.62,14H15.37L16.5,17H18.5L13,3H11Z" />
+        <path d="M3 19H21V21H3V19Z" />
     </svg>
 );
 
 export const HighlightIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="m16.707 5.293-1-1a1 1 0 0 0-1.414 0L9 9.586V11h1.414l5.293-5.293a1 1 0 0 0 0-1.414ZM11.414 11H10v-1.414L14.293 5 15 5.707 11.414 9.394V11Z" clipRule="evenodd" />
-        <path d="m14.086 4.606 1.308 1.308-5.308 5.308-1.414 1.414-1.308-1.308-1.414-1.414 5.308-5.308 1.414-1.414 1.414 1.414Z" />
-        <path d="M3.5 13.5a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-1Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M18.5,16.28V19.28H21.46L19.46,21.28H4.46L2.46,19.28H5.46V13.28H8.46V16.28H18.5M20.71,4.04C21.1,3.65 21.1,3 20.71,2.63L18.37,0.29C18,-0.1 17.35,-0.1 16.96,0.29L15.13,2.12L18.88,5.87L20.71,4.04M14.06,3.19L3,14.25V18H6.75L17.81,6.94L14.06,3.19Z" />
     </svg>
 );
 
 export const LinkIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.665l3-3Z" />
-        <path d="M8.603 16.103a4 4 0 0 0 5.657-5.657l-1.224-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a2.5 2.5 0 0 1-3.536-3.536l3-3a2.5 2.5 0 0 1 3.536 3.536.75.75 0 0 0 1.061 1.06l-3 3a4 4 0 0 0-5.657 5.657l1.224 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83L5.64,11.3C5.25,10.91 5.25,10.27 5.64,9.88C6,9.49 6.63,9.49 7.02,9.88L10.59,13.41M18.36,5.64C17.97,5.25 17.34,5.25 16.95,5.64L13.41,9.17C13,9.56 13,10.2 13.41,10.59C13.8,11 14.44,11 14.83,10.59L18.36,7.02C18.75,6.63 18.75,6 18.36,5.64M17,13.5C17.26,13.5 17.5,13.74 17.5,14V17A2,2 0 0,1 15.5,19H14V21H15.5A4,4 0 0,0 19.5,17V14C19.5,13.74 19.26,13.5 19,13.5H17M8.5,7H10V5H8.5A4,4 0 0,0 4.5,9V12C4.5,12.26 4.74,12.5 5,12.5H7C7.26,12.5 7.5,12.26 7.5,12V9A2,2 0 0,1 9.5,7H10V5H9.5A2,2 0 0,1 7.5,7V8.5H5V9A4,4 0 0,0 8.5,7Z" />
+    </svg>
+);
+
+export const AddCommentIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M18,14H13V9H11V14H6V12H11V7H13V12H18V14Z" />
     </svg>
 );
 
 export const AlignLeftIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M15,15H3V17H15V15M15,9H3V11H15V9M3,13H21V11H3V13M21,7H3V9H21V7M3,5H21V3H3V5M3,21H15V19H3V21Z" />
     </svg>
 );
 
 export const AlignCenterIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM5.5 10a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm-3 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M15,15H9V17H15V15M9,9H15V11H9V9M3,13H21V11H3V13M21,7H3V9H21V7M3,5H21V3H3V5M3,21H21V19H3V21Z" />
     </svg>
 );
 
 export const AlignRightIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm-2 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M9,15H21V17H9V15M9,9H21V11H9V9M3,13H21V11H3V13M21,7H3V9H21V7M3,5H21V3H3V5M9,21H21V19H9V21Z" />
     </svg>
 );
 export const AlignJustifyIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M3,3H21V5H3V3M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15M3,19H21V21H3V19Z" />
+    </svg>
+);
+
+export const LineSpacingIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M10,13H22V11H10M10,19H22V17H10M10,7H22V5H10M6,7H8.5L5,3.5L1.5,7H4V17H1.5L5,20.5L8.5,17H6V7Z" />
+    </svg>
+);
+
+export const ChecklistIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M21.1,12.5L22.5,13.91L15.97,20.5L12.5,17L13.9,15.58L15.97,17.67L21.1,12.5M4.5,8.5L6,7L3,4L1.5,5.5L4.5,8.5M4.5,15.5L6,14L3,11L1.5,12.5L4.5,15.5M9,5H21V7H9V5M9,12H13V14H9V12M9,19H21V21H9V19Z" />
     </svg>
 );
 
 export const ListBulletedIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2.5 4.5a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1h-15ZM2.5 10.5a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1h-15ZM2.5 16.5a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1h-15Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M7,5H21V7H7V5M7,13V11H21V13H7M4,4.5A1.5,1.5 0 0,1 5.5,6A1.5,1.5 0 0,1 4,7.5A1.5,1.5 0 0,1 2.5,6A1.5,1.5 0 0,1 4,4.5M4,10.5A1.5,1.5 0 0,1 5.5,12A1.5,1.5 0 0,1 4,13.5A1.5,1.5 0 0,1 2.5,12A1.5,1.5 0 0,1 4,10.5M7,19V17H21V19H7M4,16.5A1.5,1.5 0 0,1 5.5,18A1.5,1.5 0 0,1 4,19.5A1.5,1.5 0 0,1 2.5,18A1.5,1.5 0 0,1 4,16.5Z" />
     </svg>
 );
 
 export const ListNumberedIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M7,13V11H21V13H7M7,19V17H21V19H7M7,7V5H21V7H7M3,8V5H2V4H4V8H3M2,17H4V17.5H3V18.5H4V19H2V20H5V16H2V17M2.25,14H3.17L4.5,11.5V11H2V12H3.3L2.25,14Z" />
     </svg>
 );
 
 export const IndentIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75ZM2.75 2.5a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M11,13H21V11H11M11,9H21V7H11M3,5V19L8,12M3,21H21V19H3M3,3H21V5H3" />
     </svg>
 );
 
 export const OutdentIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75ZM2.75 2.5a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M11,13H21V11H11M11,9H21V7H11M8,5V19L3,12M3,21H21V19H3M3,3H21V5H3" />
     </svg>
 );
 
 export const ClearFormattingIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M12.28 5.22a.75.75 0 0 1 0 1.06L9.81 8.75h4.44a.75.75 0 0 1 0 1.5h-4.44l2.47 2.47a.75.75 0 1 1-1.06 1.06L8.22 9.28a.75.75 0 0 1 0-1.06l3-3a.75.75 0 0 1 1.06 0ZM3 5.25a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-1.5 0V6A.75.75 0 0 1 3 5.25Z" clipRule="evenodd" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M6.2,3.3L5,4.5L12,11.5L19,4.5L17.8,3.3L12,9.1L6.2,3.3M12,13.2L5,6.2L3.8,7.4L12,15.6L20.2,7.4L19,6.2L12,13.2M3,21V19H21V21H3Z" />
+    </svg>
+);
+
+export const MoreVerticalIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 21a2 2 0 100-4 2 2 0 000 4zm0-7a2 2 0 100-4 2 2 0 000 4zm0-7a2 2 0 100-4 2 2 0 000 4z" />
     </svg>
 );
