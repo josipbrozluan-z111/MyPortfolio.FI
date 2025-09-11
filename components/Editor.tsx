@@ -120,6 +120,9 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
         { name: 'Gray', value: '#6B7280' }, { name: 'Black', value: '#000000' },
     ];
 
+    const COLOR_ROW_1 = ALL_COLORS.slice(0, 6);
+    const COLOR_ROW_2 = ALL_COLORS.slice(6);
+
     const handleLink = () => {
         const url = prompt('Enter the URL:');
         if (url) {
@@ -190,25 +193,43 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Text Color"><TextColorIcon /></ToolbarButton>
-                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-3 z-20">
-                    <div className="grid grid-cols-6 gap-2">
-                         {ALL_COLORS.map(color => (
-                            <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
-                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
-                        ))}
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                            {COLOR_ROW_1.map(color => (
+                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
+                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                    style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            {COLOR_ROW_2.map(color => (
+                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
+                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                    style={{ backgroundColor: color.value }} aria-label={`Set text color to ${color.name}`} />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Highlight Color"><HighlightIcon /></ToolbarButton>
-                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-3 z-20">
-                    <div className="grid grid-cols-6 gap-2">
-                         {ALL_COLORS.map(color => (
-                            <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
-                                className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
-                                style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
-                        ))}
+                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                            {COLOR_ROW_1.map(color => (
+                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
+                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                    style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            {COLOR_ROW_2.map(color => (
+                                <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
+                                    className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
+                                    style={{ backgroundColor: color.value }} aria-label={`Set highlight color to ${color.name}`} />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
