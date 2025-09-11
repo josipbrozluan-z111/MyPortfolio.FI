@@ -268,7 +268,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} />;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} />;
     }
     return <EmptyState />;
   }

@@ -153,6 +153,12 @@ export const AddCommentIcon: React.FC<{ className?: string }> = ({ className = "
     </svg>
 );
 
+export const ImageIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z" />
+    </svg>
+);
+
 export const AlignLeftIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M15,15H3V17H15V15M15,9H3V11H15V9M3,13H21V11H3V13M21,7H3V9H21V7M3,5H21V3H3V5M3,21H15V19H3V21Z" />

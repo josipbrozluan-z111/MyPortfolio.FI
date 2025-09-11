@@ -1,11 +1,13 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PortfolioEntry } from '../types';
 import { 
     TrashIcon, HighlightIcon, TextColorIcon, UndoIcon, RedoIcon, PrintIcon, ChevronDownIcon, 
     BoldIcon, ItalicIcon, UnderlineIcon, LinkIcon, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, 
     AlignJustifyIcon, ListBulletedIcon, ListNumberedIcon, OutdentIcon, IndentIcon, ClearFormattingIcon,
-    PlusIcon, MinusIcon, SearchIcon, FormatPainterIcon, AddCommentIcon, LineSpacingIcon, ChecklistIcon, MoreVerticalIcon
+    PlusIcon, MinusIcon, SearchIcon, FormatPainterIcon, AddCommentIcon, LineSpacingIcon, ChecklistIcon, MoreVerticalIcon,
+    ImageIcon
 } from './Icons';
 
 interface EditorProps {
@@ -14,6 +16,7 @@ interface EditorProps {
   onDelete: (id:string) => void;
   accentColor: string;
   theme: 'light' | 'dark';
+  isSidebarCollapsed: boolean;
 }
 
 const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean }> = 
@@ -57,7 +60,7 @@ const ToolbarSeparator: React.FC = () => (
 const FONT_FAMILIES = ['Arial', 'Verdana', 'Times New Roman', 'Georgia', 'Courier New', 'Lucida Console'];
 const FONT_SIZE_MAP: { [key: number]: number } = { 1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36 };
 
-const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', editorRef: React.RefObject<HTMLDivElement> }> = ({ accentColor, theme, editorRef }) => {
+const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', editorRef: React.RefObject<HTMLDivElement>, onTriggerImageUpload: () => void }> = ({ accentColor, theme, editorRef, onTriggerImageUpload }) => {
     const [isBold, setIsBold] = useState(false);
     const [isItalic, setIsItalic] = useState(false);
     const [isUnderline, setIsUnderline] = useState(false);
@@ -187,8 +190,8 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Text Color"><TextColorIcon /></ToolbarButton>
-                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
-                    <div className="grid grid-cols-6 gap-1.5">
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-3 z-20">
+                    <div className="grid grid-cols-6 gap-2">
                          {ALL_COLORS.map(color => (
                             <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.value);}}
                                 className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
@@ -199,8 +202,8 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             </div>
              <div className="relative group">
                 <ToolbarButton onClick={() => {}} title="Highlight Color"><HighlightIcon /></ToolbarButton>
-                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-2 z-20">
-                    <div className="grid grid-cols-6 gap-1.5">
+                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block p-3 z-20">
+                    <div className="grid grid-cols-6 gap-2">
                          {ALL_COLORS.map(color => (
                             <button key={color.name} title={color.name} onMouseDown={(e) => { e.preventDefault(); execCmd('hiliteColor', color.value);}}
                                 className={`w-6 h-6 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-700 ring-accent ${color.value === '#FFFFFF' ? 'border border-black/20' : ''}`}
@@ -212,6 +215,7 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
             <ToolbarSeparator />
             
             <ToolbarButton onClick={handleLink} title="Insert Link"><LinkIcon /></ToolbarButton>
+            <ToolbarButton onClick={onTriggerImageUpload} title="Insert Image"><ImageIcon /></ToolbarButton>
             <ToolbarButton title="Add Comment" disabled><AddCommentIcon /></ToolbarButton>
             <ToolbarSeparator />
 
@@ -238,9 +242,10 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
     );
 };
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme }) => {
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed }) => {
   const [title, setTitle] = useState(entry.title);
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     setTitle(entry.title);
@@ -280,9 +285,64 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
       }
     }
   };
+
+  const insertImage = (base64Data: string) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      const imgHtml = `<img src="${base64Data}" />`;
+      document.execCommand('insertHTML', false, imgHtml);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (typeof result === 'string') {
+          insertImage(result);
+          handleContentChange(); // Trigger save after image insert
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = event.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        event.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result;
+            if (typeof result === 'string') {
+              insertImage(result);
+              handleContentChange(); // Trigger save after image insert
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+    }
+  };
   
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      <input
+        type="file"
+        ref={imageInputRef}
+        onChange={handleImageUpload}
+        className="hidden"
+        accept="image/*"
+      />
       {/* Editor Header */}
       <div className="editor-header flex-shrink-0 p-4 border-b border-gray-300/70 dark:border-gray-700/50 flex items-center justify-between bg-gray-100/30 dark:bg-gray-800/30">
         <input
@@ -305,14 +365,20 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
       
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <EditorToolbar accentColor={accentColor} theme={theme} editorRef={editorRef} />
+        <EditorToolbar 
+            accentColor={accentColor} 
+            theme={theme} 
+            editorRef={editorRef} 
+            onTriggerImageUpload={() => imageInputRef.current?.click()}
+        />
         <div className="flex-1 overflow-y-auto">
             <div
                 ref={editorRef}
                 contentEditable={true}
                 onInput={handleContentChange}
                 onKeyDown={handleKeyDown}
-                className="prose-editor max-w-4xl mx-auto p-6 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none"
+                onPaste={handlePaste}
+                className={`prose-editor mx-auto p-6 w-full h-full text-gray-800 dark:text-gray-200 focus:outline-none transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'max-w-6xl' : 'max-w-4xl'}`}
                 spellCheck="true"
             />
         </div>
