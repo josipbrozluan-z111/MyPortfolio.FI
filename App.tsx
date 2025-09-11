@@ -10,6 +10,9 @@ const App: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // --- Theme State ---
@@ -38,6 +41,16 @@ const App: React.FC = () => {
     root.style.setProperty('--accent-color', accentColor);
   }, [theme, accentColor]);
   // --- End Theme State ---
+
+  // --- Sidebar State ---
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prevState => !prevState);
+  };
+  // --- End Sidebar State ---
 
   // Helper function to process loaded data, handling migration from old format
   const processLoadedData = useCallback((data: any) => {
@@ -293,6 +306,7 @@ const App: React.FC = () => {
         activeEntryId={activeEntryId}
         theme={theme}
         accentColor={accentColor}
+        isCollapsed={isSidebarCollapsed}
         onSelectEntry={setActiveEntryId}
         onCreateTopic={handleAddNewTopic}
         onCreateEntry={handleAddNewEntry}
@@ -302,6 +316,7 @@ const App: React.FC = () => {
         onTriggerUpload={handleImportProject}
         onSetTheme={handleSetTheme}
         onSetAccentColor={handleSetAccentColor}
+        onToggleSidebar={toggleSidebar}
       />
       <main className="flex-1">
         {renderMainContent()}
