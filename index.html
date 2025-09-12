@@ -1,21 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portfolio Writer</title>
-    <script>
-      // Sets theme from localStorage before React loads to prevent FOUC (Flash of Unstyled Content)
-      (function() {
-        try {
-          // Default to light theme if 'theme' is not 'dark'
-          const isDark = localStorage.getItem('theme') === 'dark';
-          document.documentElement.classList.toggle('dark', isDark);
-          document.documentElement.classList.toggle('light', !isDark);
-        } catch (e) { /* ignore */ }
-      })();
-    </script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -30,11 +19,8 @@
       ::-webkit-scrollbar {
         width: 8px;
       }
-      .dark ::-webkit-scrollbar-track {
+      ::-webkit-scrollbar-track {
         background: #1f2937; /* bg-gray-800 */
-      }
-      .light ::-webkit-scrollbar-track {
-        background: #f3f4f6; /* bg-gray-100 */
       }
       ::-webkit-scrollbar-thumb {
         background: #4b5563; /* bg-gray-600 */

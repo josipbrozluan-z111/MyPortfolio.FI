@@ -21,34 +21,10 @@ const App: React.FC = () => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
 
-  // --- Theme & Accent Color State ---
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try {
-      // Default to 'light' if not explicitly set to 'dark'
-      const savedTheme = localStorage.getItem('theme');
-      return savedTheme === 'dark' ? 'dark' : 'light';
-    } catch {
-      return 'light'; // Default in case localStorage is inaccessible
-    }
-  });
+  // --- Accent Color State ---
   const [accentColor, setAccentColor] = useState<string>(() => {
       return localStorage.getItem('accentColor') || '#06b6d4'; // Default cyan-600
   });
-
-  // Effect for handling all theme-related side-effects (DOM and localStorage)
-  useEffect(() => {
-    const root = window.document.documentElement;
-    // 1. Update <html> class for Tailwind CSS
-    root.classList.toggle('dark', theme === 'dark');
-    root.classList.toggle('light', theme === 'light');
-
-    // 2. Persist theme choice to localStorage
-    try {
-      localStorage.setItem('theme', theme);
-    } catch (error) {
-      console.warn('Could not save theme to localStorage:', error);
-    }
-  }, [theme]); // Re-run this effect whenever the theme state changes
 
   // Effect for handling all accent-color-related side-effects
   useEffect(() => {
@@ -62,7 +38,7 @@ const App: React.FC = () => {
       console.warn('Could not save accent color to localStorage:', error);
     }
   }, [accentColor]); // Re-run this effect whenever the accentColor state changes
-  // --- End Theme & Accent Color State ---
+  // --- End Accent Color State ---
 
 
   // --- Sidebar State ---
@@ -343,7 +319,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} saveError={saveError} />;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} saveError={saveError} />;
     }
     return <EmptyState />;
   }
@@ -374,12 +350,11 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+    <div className="flex h-screen w-screen font-sans text-gray-800 dark:text-gray-200">
       <input type="file" ref={importInputRef} onChange={handleFileSelected} className="hidden" accept="application/json,.json" />
       <Sidebar
         topics={portfolioData.topics}
         activeEntryId={activeEntryId}
-        theme={theme}
         accentColor={accentColor}
         isCollapsed={isSidebarCollapsed}
         onSelectEntry={setActiveEntryId}
@@ -389,7 +364,6 @@ const App: React.FC = () => {
         onDeleteTopic={handleDeleteTopic}
         onDownload={handleDownload}
         onTriggerUpload={handleImportProject}
-        onSetTheme={setTheme}
         onSetAccentColor={setAccentColor}
         onToggleSidebar={toggleSidebar}
       />

@@ -15,7 +15,6 @@ interface EditorProps {
   onUpdate: (id: string, updates: Partial<PortfolioEntry>) => void;
   onDelete: (id:string) => void;
   accentColor: string;
-  theme: 'light' | 'dark';
   isSidebarCollapsed: boolean;
   saveStatus: SaveStatus;
   saveError: string | null;
@@ -62,7 +61,7 @@ const ToolbarSeparator: React.FC = () => (
 const FONT_FAMILIES = ['Arial', 'Verdana', 'Times New Roman', 'Georgia', 'Courier New', 'Lucida Console'];
 const FONT_SIZE_MAP: { [key: number]: number } = { 1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36 };
 
-const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', editorRef: React.RefObject<HTMLDivElement>, onTriggerImageUpload: () => void }> = ({ accentColor, theme, editorRef, onTriggerImageUpload }) => {
+const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<HTMLDivElement>, onTriggerImageUpload: () => void }> = ({ accentColor, editorRef, onTriggerImageUpload }) => {
     const [isBold, setIsBold] = useState(false);
     const [isItalic, setIsItalic] = useState(false);
     const [isUnderline, setIsUnderline] = useState(false);
@@ -207,7 +206,7 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
 };
 
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed, saveStatus, saveError }) => {
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, isSidebarCollapsed, saveStatus, saveError }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -336,7 +335,6 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
     <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
       <EditorToolbar 
         accentColor={accentColor} 
-        theme={theme} 
         editorRef={editorRef} 
         onTriggerImageUpload={() => imageInputRef.current?.click()}
       />

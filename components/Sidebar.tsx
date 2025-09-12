@@ -5,7 +5,6 @@ import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, F
 interface SidebarProps {
   topics: Topic[];
   activeEntryId: string | null;
-  theme: 'light' | 'dark';
   accentColor: string;
   isCollapsed: boolean;
   onSelectEntry: (id: string) => void;
@@ -15,7 +14,6 @@ interface SidebarProps {
   onDeleteTopic: (topicId: string) => void;
   onDownload: () => void;
   onTriggerUpload: () => void;
-  onSetTheme: (theme: 'light' | 'dark') => void;
   onSetAccentColor: (color: string) => void;
   onToggleSidebar: () => void;
 }
@@ -32,7 +30,6 @@ const ACCENT_COLORS = [
 const Sidebar: React.FC<SidebarProps> = ({
   topics,
   activeEntryId,
-  theme,
   accentColor,
   isCollapsed,
   onSelectEntry,
@@ -42,7 +39,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteTopic,
   onDownload,
   onTriggerUpload,
-  onSetTheme,
   onSetAccentColor,
   onToggleSidebar,
 }) => {
@@ -224,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </div>
               </div>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <button
                 onClick={() => setSettingsOpen(!settingsOpen)}
                 disabled={isCollapsed}
@@ -233,13 +229,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
                 <CogIcon className="w-5 h-5" />
                 {!isCollapsed && 'Settings & Actions'}
-            </button>
-            <button
-                onClick={() => onSetTheme(theme === 'light' ? 'dark' : 'light')}
-                className="flex-shrink-0 p-2.5 text-sm font-medium bg-black/5 dark:bg-gray-700/80 text-gray-800 dark:text-white rounded-md hover:bg-black/10 dark:hover:bg-gray-600/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 ring-accent transition-colors"
-                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            >
-                {theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
             </button>
           </div>
       </div>

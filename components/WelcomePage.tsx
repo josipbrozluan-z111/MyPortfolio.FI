@@ -7,7 +7,7 @@ interface WelcomePageProps {
 }
 
 const WelcomePage: React.FC<WelcomePageProps> = ({ onCreateProject, onTriggerUpload }) => (
-  <div className="flex items-center justify-center h-screen w-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+  <div className="flex items-center justify-center h-screen w-screen text-gray-800 dark:text-gray-100 font-sans">
     <div className="flex flex-col items-center justify-center text-center p-8">
         <BookOpenIcon className="w-24 h-24 mb-6 text-gray-400 dark:text-gray-600"/>
         <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Welcome to Portfolio Writer</h2>
