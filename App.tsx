@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [activeEntryId, setActiveEntryId] = useState<string | null>(() => localStorage.getItem('activeEntryId'));
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
@@ -136,6 +137,7 @@ const App: React.FC = () => {
     if (portfolioData && !isLoading) {
       clearTimeout(saveStatusTimeoutRef.current);
       setSaveStatus('saving');
+      setSaveError(null); // Clear previous errors on new save attempt
       
       savePortfolioData(portfolioData)
         .then(() => {
@@ -144,9 +146,17 @@ const App: React.FC = () => {
               setSaveStatus('idle');
           }, 2000);
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.error("Failed to save to IndexedDB:", error);
           setSaveStatus('error');
+          // Set a more specific error message
+          if (error && error.name === 'QuotaExceededError') {
+              setSaveError("Storage quota exceeded. The portfolio is too large to save. Please try removing large images or exporting your data as a backup.");
+          } else if (error && error.message) {
+              setSaveError(`An unexpected error occurred: ${error.message}`);
+          } else {
+              setSaveError("An unknown error occurred while saving. Please export your work to prevent data loss.");
+          }
         });
     }
   }, [portfolioData, isLoading]);
@@ -316,7 +326,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} />;
+      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} theme={theme} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} saveError={saveError} />;
     }
     return <EmptyState />;
   }

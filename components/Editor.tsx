@@ -18,6 +18,7 @@ interface EditorProps {
   theme: 'light' | 'dark';
   isSidebarCollapsed: boolean;
   saveStatus: SaveStatus;
+  saveError: string | null;
 }
 
 const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean; className?: string }> = 
@@ -207,7 +208,7 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
 };
 
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed, saveStatus }) => {
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, theme, isSidebarCollapsed, saveStatus, saveError }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -325,7 +326,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         case 'saved':
             return <p className="text-sm text-green-600 dark:text-green-400">Saved</p>;
         case 'error':
-            return <p className="text-sm text-red-500 dark:text-red-400" title="Could not save. Please check your browser's storage permissions or try again later.">Error saving</p>;
+            return <p className="text-sm text-red-500 dark:text-red-400" title={saveError || "Could not save. Please check storage permissions or try exporting your work."}>Error saving</p>;
         default:
             return null;
     }

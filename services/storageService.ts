@@ -48,7 +48,7 @@ export async function savePortfolioData(data: PortfolioData): Promise<void> {
 
       request.onerror = () => {
         console.error('Error saving data to IndexedDB:', request.error);
-        reject(new Error('Failed to save data.'));
+        reject(request.error); // Pass the original error object for detailed diagnostics
       };
     } catch (error) {
         console.error('Error creating IndexedDB transaction:', error);
