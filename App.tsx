@@ -24,10 +24,11 @@ const App: React.FC = () => {
   // --- Theme & Accent Color State ---
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
+      // Default to 'light' if not explicitly set to 'dark'
       const savedTheme = localStorage.getItem('theme');
-      return (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
+      return savedTheme === 'dark' ? 'dark' : 'light';
     } catch {
-      return 'dark'; // Default in case localStorage is inaccessible
+      return 'light'; // Default in case localStorage is inaccessible
     }
   });
   const [accentColor, setAccentColor] = useState<string>(() => {

@@ -9,9 +9,10 @@
       // Sets theme from localStorage before React loads to prevent FOUC (Flash of Unstyled Content)
       (function() {
         try {
-          const isLight = localStorage.getItem('theme') === 'light';
-          document.documentElement.classList.toggle('dark', !isLight);
-          document.documentElement.classList.toggle('light', isLight);
+          // Default to light theme if 'theme' is not 'dark'
+          const isDark = localStorage.getItem('theme') === 'dark';
+          document.documentElement.classList.toggle('dark', isDark);
+          document.documentElement.classList.toggle('light', !isDark);
         } catch (e) { /* ignore */ }
       })();
     </script>
@@ -121,7 +122,7 @@
 }
 </script>
 </head>
-  <body class="transition-colors duration-300">
+  <body class="transition-colors duration-300 bg-gray-100 dark:bg-gray-900">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

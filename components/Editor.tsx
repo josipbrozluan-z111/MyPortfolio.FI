@@ -116,9 +116,8 @@ const EditorToolbar: React.FC<{ accentColor: string; theme: 'light' | 'dark', ed
     }, [updateToolbarState, editorRef]);
 
 
-    const defaultTextColor = theme === 'dark' ? '#E5E7EB' : '#1F2937'; // gray-200 and gray-800
     const ALL_COLORS = [
-        { name: 'Accent', value: accentColor }, { name: 'Default Text', value: defaultTextColor },
+        { name: 'Accent', value: accentColor },
         '#ef4444', '#f97316', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef',
         '#f43f5e', '#fca5a5', '#fdba74', '#bef264', '#86efac', '#67e8f9', '#93c5fd', '#c4b5fd', '#f0abfc',
         '#ec4899', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827', '#000000',
