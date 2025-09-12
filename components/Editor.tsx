@@ -296,17 +296,26 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   };
   
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-      const items = e.clipboardData.items;
-      for (let i = 0; i < items.length; i++) {
-          if (items[i].type.indexOf('image') !== -1) {
-              const file = items[i].getAsFile();
-              if(file) {
-                  e.preventDefault();
-                  compressAndInsertImage(file);
-                  return;
-              }
-          }
-      }
+    const items = e.clipboardData.items;
+    let imageHandled = false;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+                e.preventDefault();
+                compressAndInsertImage(file);
+                imageHandled = true;
+                break; // Only handle the first image file
+            }
+        }
+    }
+  
+    // If we didn't handle a pasted image file, it might be a regular paste (text, html from web).
+    // The `onInput` event should handle this, but for large content that might delay the `onInput` event,
+    // we schedule a check as a fallback to ensure the save is triggered.
+    if (!imageHandled) {
+        setTimeout(handleContentChange, 100);
+    }
   };
 
   const getSaveStatusMessage = () => {
