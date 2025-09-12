@@ -325,7 +325,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         case 'saved':
             return <p className="text-sm text-green-600 dark:text-green-400">Saved</p>;
         case 'error':
-            return <p className="text-sm text-red-500 dark:text-red-400" title="Could not save. The content might be too large for browser storage.">Error saving</p>;
+            return <p className="text-sm text-red-500 dark:text-red-400" title="Could not save. Please check your browser's storage permissions or try again later.">Error saving</p>;
         default:
             return null;
     }

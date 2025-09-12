@@ -5,19 +5,19 @@ import WelcomePage from './components/WelcomePage';
 import EmptyState from './components/EmptyState';
 import { PortfolioData, PortfolioEntry, Topic } from './types';
 import { BookOpenIcon } from './components/Icons';
+import { loadPortfolioData, savePortfolioData, clearOldLocalStorageData } from './services/storageService';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const App: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
-  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(() => localStorage.getItem('activeEntryId'));
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   const importInputRef = useRef<HTMLInputElement>(null);
-  // FIX: Pass undefined to useRef to fix "Expected 1 arguments, but got 0" error.
   const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
 
   // --- Theme State ---
@@ -56,18 +56,24 @@ const App: React.FC = () => {
     setIsSidebarCollapsed(prevState => !prevState);
   };
   // --- End Sidebar State ---
+  
+  // Persist active entry ID
+  useEffect(() => {
+    if (activeEntryId) {
+      localStorage.setItem('activeEntryId', activeEntryId);
+    } else {
+      localStorage.removeItem('activeEntryId');
+    }
+  }, [activeEntryId]);
+
 
   // Helper function to process loaded data, handling migration from old format
   const processLoadedData = useCallback((data: any) => {
       let newPortfolioData: PortfolioData;
-      let newActiveEntryId: string | null = null;
       
       if (data && Array.isArray(data.topics)) {
-        // New format, load directly
         newPortfolioData = data;
-        newActiveEntryId = data.topics[0]?.entries[0]?.id || null;
       } else if (data && Array.isArray(data.entries)) {
-        // Old format, migrate it
         console.log("Old data format detected. Migrating to new topic-based structure.");
         const newTopic: Topic = {
           id: `topic-${Date.now()}`,
@@ -76,51 +82,74 @@ const App: React.FC = () => {
           entries: data.entries,
         };
         newPortfolioData = { topics: [newTopic] };
-        newActiveEntryId = newPortfolioData.topics[0]?.entries[0]?.id || null;
       } else {
-        throw new Error("Invalid JSON structure.");
+        console.error("Loaded data has invalid structure.");
+        return; // Avoid setting corrupt data
       }
       
       setPortfolioData(newPortfolioData);
-      setActiveEntryId(newActiveEntryId);
+
+      // Validate the activeEntryId from localStorage, or set a default one
+      const lastActiveId = localStorage.getItem('activeEntryId');
+      const allEntryIds = new Set(newPortfolioData.topics.flatMap(t => t.entries.map(e => e.id)));
+      if (lastActiveId && allEntryIds.has(lastActiveId)) {
+        setActiveEntryId(lastActiveId);
+      } else {
+        // Set to first entry if last active is invalid or not found
+        setActiveEntryId(newPortfolioData.topics[0]?.entries[0]?.id || null);
+      }
   }, []);
 
-  // Initial load from localStorage
+  // Initial load from storage (IndexedDB with localStorage fallback/migration)
   useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('portfolioData');
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        processLoadedData(parsedData);
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await loadPortfolioData();
+        
+        if (data) {
+          processLoadedData(data);
+        } else {
+          const savedData = localStorage.getItem('portfolioData');
+          if (savedData) {
+            console.log("Migrating data from localStorage to IndexedDB.");
+            const parsedData = JSON.parse(savedData);
+            processLoadedData(parsedData);
+            // The save effect will handle saving to IndexedDB. We clear old storage after.
+            clearOldLocalStorageData();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load or parse data from storage", error);
+        // Clear potentially corrupted old data
+        clearOldLocalStorageData();
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load or parse data from localStorage", error);
-      // Clear potentially corrupted data
-      localStorage.removeItem('portfolioData');
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    
+    loadData();
   }, [processLoadedData]);
 
-  // Auto-save to localStorage
+  // Auto-save to IndexedDB
   useEffect(() => {
-    if (portfolioData) {
-      // Clear any existing timeout to avoid resetting a new "saving" message
+    if (portfolioData && !isLoading) {
       clearTimeout(saveStatusTimeoutRef.current);
       setSaveStatus('saving');
-      try {
-        localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
-        setSaveStatus('saved');
-        // Set a timeout to clear the 'saved' message after a few seconds
-        saveStatusTimeoutRef.current = window.setTimeout(() => {
-            setSaveStatus('idle');
-        }, 2000);
-      } catch (error) {
-        console.error("Failed to save to localStorage:", error);
-        setSaveStatus('error');
-      }
+      
+      savePortfolioData(portfolioData)
+        .then(() => {
+          setSaveStatus('saved');
+          saveStatusTimeoutRef.current = window.setTimeout(() => {
+              setSaveStatus('idle');
+          }, 2000);
+        })
+        .catch((error) => {
+          console.error("Failed to save to IndexedDB:", error);
+          setSaveStatus('error');
+        });
     }
-  }, [portfolioData]);
+  }, [portfolioData, isLoading]);
 
   const handleCreateNewProject = () => {
     const newEntry: PortfolioEntry = {
@@ -170,7 +199,6 @@ const App: React.FC = () => {
 
     reader.readAsText(file);
     
-    // Reset input value to allow re-importing the same file
     if (event.target) {
         event.target.value = '';
     }
@@ -195,10 +223,12 @@ const App: React.FC = () => {
 
   const handleDeleteTopic = (topicId: string) => {
     const topicToDelete = portfolioData?.topics.find(t => t.id === topicId);
-    if (window.confirm(`Are you sure you want to delete the topic "${topicToDelete?.name}" and all its entries?`)) {
+    if (!topicToDelete) return;
+    
+    if (window.confirm(`Are you sure you want to delete the topic "${topicToDelete.name}" and all its entries?`)) {
         const newTopics = portfolioData!.topics.filter(t => t.id !== topicId);
         
-        const activeEntryWasInDeletedTopic = topicToDelete?.entries.some(e => e.id === activeEntryId);
+        const activeEntryWasInDeletedTopic = topicToDelete.entries.some(e => e.id === activeEntryId);
 
         setPortfolioData({
             ...portfolioData!,
@@ -255,13 +285,14 @@ const App: React.FC = () => {
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
     setPortfolioData(currentData => {
-        const newTopics = currentData!.topics.map(topic => ({
+        if (!currentData) return null;
+        const newTopics = currentData.topics.map(topic => ({
           ...topic,
           entries: topic.entries.map(entry =>
             entry.id === id ? { ...entry, ...updates } : entry
           )
         }));
-        return { ...currentData!, topics: newTopics };
+        return { ...currentData, topics: newTopics };
     });
   }, []);
 
