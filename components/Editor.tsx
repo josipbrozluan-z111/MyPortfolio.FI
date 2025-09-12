@@ -295,25 +295,67 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   };
   
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    // First, handle image pasting
     const items = e.clipboardData.items;
-    let imageHandled = false;
     for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
             const file = items[i].getAsFile();
             if (file) {
                 e.preventDefault();
                 compressAndInsertImage(file);
-                imageHandled = true;
-                break; // Only handle the first image file
+                return; // Image handled, stop further processing
             }
         }
     }
   
-    // If we didn't handle a pasted image file, it might be a regular paste (text, html from web).
-    // The `onInput` event should handle this, but for large content that might delay the `onInput` event,
-    // we schedule a check as a fallback to ensure the save is triggered.
-    if (!imageHandled) {
-        setTimeout(handleContentChange, 100);
+    // Next, handle HTML content for color correction in dark theme
+    const pastedHtml = e.clipboardData.getData('text/html');
+    if (pastedHtml) {
+        e.preventDefault();
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = pastedHtml;
+
+        // Function to check if a color is black or very dark
+        const isBlackOrVeryDark = (color: string) => {
+            if (!color) return false;
+            color = color.toLowerCase().trim();
+            if (['black', '#000', '#000000', 'rgb(0, 0, 0)'].includes(color)) {
+                return true;
+            }
+            const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (rgbMatch) {
+                const r = parseInt(rgbMatch[1], 10);
+                const g = parseInt(rgbMatch[2], 10);
+                const b = parseInt(rgbMatch[3], 10);
+                // Consider color dark if average component is below a threshold (e.g., 35)
+                return (r + g + b) / 3 < 35;
+            }
+            return false;
+        };
+
+        // Traverse all elements in the pasted content and correct colors
+        const allElements = tempDiv.querySelectorAll('*');
+        allElements.forEach(el => {
+            const element = el as HTMLElement;
+            if (element.style && isBlackOrVeryDark(element.style.color)) {
+                element.style.color = '#FFFFFF'; // Change to white
+            }
+            if (element.tagName.toLowerCase() === 'font' && element.hasAttribute('color')) {
+                const colorAttr = element.getAttribute('color');
+                if (colorAttr && isBlackOrVeryDark(colorAttr)) {
+                    element.setAttribute('color', '#FFFFFF');
+                }
+            }
+        });
+        
+        const cleanedHtml = tempDiv.innerHTML;
+        document.execCommand('insertHTML', false, cleanedHtml);
+
+    } else {
+      // For plain text, let the browser handle the paste. The `onInput` event will trigger the save.
+      // This timeout is a fallback for edge cases where `onInput` might not fire reliably.
+      setTimeout(handleContentChange, 100);
     }
   };
 
