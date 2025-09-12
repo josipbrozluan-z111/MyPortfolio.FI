@@ -21,32 +21,48 @@ const App: React.FC = () => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
 
-  // --- Theme State ---
-  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
+  // --- Theme & Accent Color State ---
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const savedTheme = localStorage.getItem('theme');
+      return (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
+    } catch {
+      return 'dark'; // Default in case localStorage is inaccessible
+    }
   });
-  const [accentColor, setAccentColorState] = useState<string>(() => {
+  const [accentColor, setAccentColor] = useState<string>(() => {
       return localStorage.getItem('accentColor') || '#06b6d4'; // Default cyan-600
   });
 
-  const handleSetTheme = (newTheme: 'light' | 'dark') => {
-      setThemeState(newTheme);
-      localStorage.setItem('theme', newTheme);
-  };
-
-  const handleSetAccentColor = (color: string) => {
-      setAccentColorState(color);
-      localStorage.setItem('accentColor', color);
-  };
-  
+  // Effect for handling all theme-related side-effects (DOM and localStorage)
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    root.style.setProperty('--accent-color', accentColor);
-  }, [theme, accentColor]);
-  // --- End Theme State ---
+    // 1. Update <html> class for Tailwind CSS
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('light', theme === 'light');
+
+    // 2. Persist theme choice to localStorage
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (error) {
+      console.warn('Could not save theme to localStorage:', error);
+    }
+  }, [theme]); // Re-run this effect whenever the theme state changes
+
+  // Effect for handling all accent-color-related side-effects
+  useEffect(() => {
+    // 1. Update CSS custom property for styling
+    document.documentElement.style.setProperty('--accent-color', accentColor);
+
+    // 2. Persist accent color choice to localStorage
+    try {
+      localStorage.setItem('accentColor', accentColor);
+    } catch (error) {
+      console.warn('Could not save accent color to localStorage:', error);
+    }
+  }, [accentColor]); // Re-run this effect whenever the accentColor state changes
+  // --- End Theme & Accent Color State ---
+
 
   // --- Sidebar State ---
   useEffect(() => {
@@ -372,8 +388,8 @@ const App: React.FC = () => {
         onDeleteTopic={handleDeleteTopic}
         onDownload={handleDownload}
         onTriggerUpload={handleImportProject}
-        onSetTheme={handleSetTheme}
-        onSetAccentColor={handleSetAccentColor}
+        onSetTheme={setTheme}
+        onSetAccentColor={setAccentColor}
         onToggleSidebar={toggleSidebar}
       />
       <main className="flex-1">
