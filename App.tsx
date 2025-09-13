@@ -70,7 +70,7 @@ const App: React.FC = () => {
       } else if (data && Array.isArray(data.entries)) {
         console.log("Old data format detected. Migrating to new topic-based structure.");
         const newTopic: Topic = {
-          id: `topic-${Date.now()}`,
+          id: crypto.randomUUID(),
           name: 'General',
           createdAt: new Date().toISOString(),
           entries: data.entries,
@@ -156,13 +156,13 @@ const App: React.FC = () => {
 
   const handleCreateNewProject = () => {
     const newEntry: PortfolioEntry = {
-      id: `entry-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: 'My First Entry',
       content: '<h1>Welcome!</h1><p>This is your first entry in your new portfolio. Use the toolbar above to format your text.</p>',
       createdAt: new Date().toISOString(),
     };
     const newTopic: Topic = {
-      id: `topic-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: 'My First Topic',
       createdAt: new Date().toISOString(),
       entries: [newEntry],
@@ -212,7 +212,7 @@ const App: React.FC = () => {
     const topicName = prompt("Enter new topic name:", "New Topic");
     if (topicName && topicName.trim()) {
         const newTopic: Topic = {
-            id: `topic-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: topicName.trim(),
             createdAt: new Date().toISOString(),
             entries: [],
@@ -246,7 +246,7 @@ const App: React.FC = () => {
 
   const handleAddNewEntry = (topicId: string) => {
     const newEntry: PortfolioEntry = {
-      id: `entry-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: 'New Entry',
       content: '',
       createdAt: new Date().toISOString(),
@@ -296,16 +296,29 @@ const App: React.FC = () => {
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
     setPortfolioData(currentData => {
-        if (!currentData) return null;
-
-        const newTopics = currentData.topics.map(topic => ({
-          ...topic,
-          entries: topic.entries.map(entry =>
-            entry.id === id ? { ...entry, ...updates } : entry
-          )
-        }));
-
-        return { topics: newTopics };
+      if (!currentData) return null;
+  
+      const newTopics = currentData.topics.map(topic => {
+        const entryIndex = topic.entries.findIndex(entry => entry.id === id);
+  
+        // If the entry is not in this topic, return the original topic object.
+        // This is crucial for performance and preventing React reconciliation issues.
+        if (entryIndex === -1) {
+          return topic;
+        }
+  
+        // If the entry is found, create a new 'entries' array for this topic
+        const updatedEntries = [
+          ...topic.entries.slice(0, entryIndex),
+          { ...topic.entries[entryIndex], ...updates }, // Create a new, updated entry object
+          ...topic.entries.slice(entryIndex + 1),
+        ];
+        
+        // Return a new topic object with the updated entries array
+        return { ...topic, entries: updatedEntries };
+      });
+  
+      return { topics: newTopics };
     });
   }, []);
 
