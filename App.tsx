@@ -21,23 +21,39 @@ const App: React.FC = () => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
 
+  // --- Auto-save Settings ---
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
+    // Defaults to true if not set
+    return localStorage.getItem('autoSaveEnabled') !== 'false';
+  });
+
+  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(() => {
+    return parseInt(localStorage.getItem('autoSaveInterval') || '1000', 10); // Default to 1 second
+  });
+
+  useEffect(() => {
+    localStorage.setItem('autoSaveEnabled', String(autoSaveEnabled));
+  }, [autoSaveEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('autoSaveInterval', String(autoSaveInterval));
+  }, [autoSaveInterval]);
+  // --- End Auto-save Settings ---
+
+
   // --- Accent Color State ---
   const [accentColor, setAccentColor] = useState<string>(() => {
       return localStorage.getItem('accentColor') || '#06b6d4'; // Default cyan-600
   });
 
-  // Effect for handling all accent-color-related side-effects
   useEffect(() => {
-    // 1. Update CSS custom property for styling
     document.documentElement.style.setProperty('--accent-color', accentColor);
-
-    // 2. Persist accent color choice to localStorage
     try {
       localStorage.setItem('accentColor', accentColor);
     } catch (error) {
       console.warn('Could not save accent color to localStorage:', error);
     }
-  }, [accentColor]); // Re-run this effect whenever the accentColor state changes
+  }, [accentColor]);
   // --- End Accent Color State ---
 
 
@@ -61,62 +77,39 @@ const App: React.FC = () => {
   }, [activeEntryId]);
 
 
-  // Helper function to process loaded data, handling migration from old format
+  // Helper function to process loaded data
   const processLoadedData = useCallback((data: any) => {
       let newPortfolioData: PortfolioData;
       
       if (data && Array.isArray(data.topics)) {
         newPortfolioData = data;
-      } else if (data && Array.isArray(data.entries)) {
-        console.log("Old data format detected. Migrating to new topic-based structure.");
-        const newTopic: Topic = {
-          id: crypto.randomUUID(),
-          name: 'General',
-          createdAt: new Date().toISOString(),
-          entries: data.entries,
-        };
-        newPortfolioData = { topics: [newTopic] };
       } else {
         console.error("Loaded data has invalid structure.");
-        return; // Avoid setting corrupt data
+        return;
       }
       
       setPortfolioData(newPortfolioData);
 
-      // Validate the activeEntryId from localStorage, or set a default one
       const lastActiveId = localStorage.getItem('activeEntryId');
       const allEntryIds = new Set(newPortfolioData.topics.flatMap(t => t.entries.map(e => e.id)));
       if (lastActiveId && allEntryIds.has(lastActiveId)) {
         setActiveEntryId(lastActiveId);
       } else {
-        // Set to first entry if last active is invalid or not found
         setActiveEntryId(newPortfolioData.topics[0]?.entries[0]?.id || null);
       }
   }, []);
 
-  // Initial load from storage (IndexedDB with localStorage fallback/migration)
+  // Initial load from storage
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
         const data = await loadPortfolioData();
-        
         if (data) {
           processLoadedData(data);
-        } else {
-          const savedData = localStorage.getItem('portfolioData');
-          if (savedData) {
-            console.log("Migrating data from localStorage to IndexedDB.");
-            const parsedData = JSON.parse(savedData);
-            processLoadedData(parsedData);
-            // The save effect will handle saving to IndexedDB. We clear old storage after.
-            clearOldLocalStorageData();
-          }
         }
       } catch (error) {
         console.error("Failed to load or parse data from storage", error);
-        // Clear potentially corrupted old data
-        clearOldLocalStorageData();
       } finally {
         setIsLoading(false);
       }
@@ -130,7 +123,7 @@ const App: React.FC = () => {
     if (portfolioData && !isLoading) {
       clearTimeout(saveStatusTimeoutRef.current);
       setSaveStatus('saving');
-      setSaveError(null); // Clear previous errors on new save attempt
+      setSaveError(null);
       
       savePortfolioData(portfolioData)
         .then(() => {
@@ -142,7 +135,6 @@ const App: React.FC = () => {
         .catch((error: any) => {
           console.error("Failed to save to IndexedDB:", error);
           setSaveStatus('error');
-          // Set a more specific error message
           if (error && error.name === 'QuotaExceededError') {
               setSaveError("Storage quota exceeded. The portfolio is too large to save. Please try removing large images or exporting your data as a backup.");
           } else if (error && error.message) {
@@ -185,9 +177,7 @@ const App: React.FC = () => {
     reader.onload = (e) => {
         try {
             const text = e.target?.result;
-            if (typeof text !== 'string') {
-                throw new Error("File could not be read as text");
-            }
+            if (typeof text !== 'string') throw new Error("File could not be read as text");
             const parsedData = JSON.parse(text);
             processLoadedData(parsedData);
         } catch (error) {
@@ -195,16 +185,8 @@ const App: React.FC = () => {
             alert("Failed to import file. Please ensure it is a valid portfolio JSON file.");
         }
     };
-    reader.onerror = () => {
-        console.error("Error reading file:", reader.error);
-        alert("Could not read the selected file.");
-    };
-
     reader.readAsText(file);
-    
-    if (event.target) {
-        event.target.value = '';
-    }
+    if (event.target) event.target.value = '';
   };
 
 
@@ -253,14 +235,10 @@ const App: React.FC = () => {
     };
     setPortfolioData(currentData => {
         if (!currentData) return currentData;
-
         const newTopics = currentData.topics.map(topic => {
-            if (topic.id === topicId) {
-                return { ...topic, entries: [...topic.entries, newEntry] };
-            }
+            if (topic.id === topicId) return { ...topic, entries: [...topic.entries, newEntry] };
             return topic;
         });
-
         return { topics: newTopics };
     });
     setActiveEntryId(newEntry.id);
@@ -271,22 +249,35 @@ const App: React.FC = () => {
       setPortfolioData(currentData => {
         if (!currentData) return currentData;
         
-        const allEntries = currentData.topics.flatMap(t => t.entries);
-        const deletedIndex = allEntries.findIndex(e => e.id === id);
+        let newActiveId = activeEntryId;
+        let deletedEntryTopicId: string | null = null;
+        let deletedEntryIndex = -1;
 
+        for (const topic of currentData.topics) {
+            const index = topic.entries.findIndex(e => e.id === id);
+            if (index !== -1) {
+                deletedEntryTopicId = topic.id;
+                deletedEntryIndex = index;
+                break;
+            }
+        }
+        
         const newTopics = currentData.topics.map(topic => ({
           ...topic,
           entries: topic.entries.filter(entry => entry.id !== id)
         }));
 
         if (activeEntryId === id) {
-          const newAllEntries = newTopics.flatMap(t => t.entries);
-          let newActiveId: string | null = null;
-          if (newAllEntries.length > 0) {
-              const newIndex = Math.min(deletedIndex, newAllEntries.length - 1);
-              newActiveId = newAllEntries[newIndex]?.id || null;
-          }
-          setActiveEntryId(newActiveId);
+            const topicOfDeletedEntry = newTopics.find(t => t.id === deletedEntryTopicId);
+            const entriesInTopic = topicOfDeletedEntry?.entries || [];
+            
+            if (entriesInTopic.length > 0) {
+                const newIndex = Math.min(deletedEntryIndex, entriesInTopic.length - 1);
+                newActiveId = entriesInTopic[newIndex].id;
+            } else {
+                newActiveId = newTopics.find(t => t.entries.length > 0)?.entries[0]?.id || null;
+            }
+            setActiveEntryId(newActiveId);
         }
 
         return { topics: newTopics };
@@ -300,24 +291,13 @@ const App: React.FC = () => {
   
       const newTopics = currentData.topics.map(topic => {
         const entryIndex = topic.entries.findIndex(entry => entry.id === id);
-  
-        // If the entry is not in this topic, return the original topic object.
-        // This is crucial for performance and preventing React reconciliation issues.
-        if (entryIndex === -1) {
-          return topic;
-        }
-  
-        // If the entry is found, create a new 'entries' array for this topic
-        const updatedEntries = [
-          ...topic.entries.slice(0, entryIndex),
-          { ...topic.entries[entryIndex], ...updates }, // Create a new, updated entry object
-          ...topic.entries.slice(entryIndex + 1),
-        ];
-        
-        // Return a new topic object with the updated entries array
-        return { ...topic, entries: updatedEntries };
+        if (entryIndex === -1) return topic;
+
+        const newEntries = [...topic.entries];
+        newEntries[entryIndex] = { ...newEntries[entryIndex], ...updates };
+        return { ...topic, entries: newEntries };
       });
-  
+      
       return { topics: newTopics };
     });
   }, []);
@@ -342,7 +322,17 @@ const App: React.FC = () => {
 
   const renderMainContent = () => {
     if (activeEntry) {
-      return <Editor entry={activeEntry} onUpdate={handleUpdateEntry} onDelete={handleDeleteEntry} accentColor={accentColor} isSidebarCollapsed={isSidebarCollapsed} saveStatus={saveStatus} saveError={saveError} />;
+      return <Editor 
+        entry={activeEntry} 
+        onUpdate={handleUpdateEntry} 
+        onDelete={handleDeleteEntry} 
+        accentColor={accentColor} 
+        isSidebarCollapsed={isSidebarCollapsed} 
+        saveStatus={saveStatus} 
+        saveError={saveError}
+        autoSaveEnabled={autoSaveEnabled}
+        autoSaveInterval={autoSaveInterval}
+      />;
     }
     return <EmptyState />;
   }
@@ -359,7 +349,6 @@ const App: React.FC = () => {
     );
   }
   
-  // Render welcome page if no project is loaded
   if (!portfolioData) {
     return (
       <>
@@ -380,6 +369,8 @@ const App: React.FC = () => {
         activeEntryId={activeEntryId}
         accentColor={accentColor}
         isCollapsed={isSidebarCollapsed}
+        autoSaveEnabled={autoSaveEnabled}
+        autoSaveInterval={autoSaveInterval}
         onSelectEntry={setActiveEntryId}
         onCreateTopic={handleAddNewTopic}
         onCreateEntry={handleAddNewEntry}
@@ -389,6 +380,8 @@ const App: React.FC = () => {
         onTriggerUpload={handleImportProject}
         onSetAccentColor={setAccentColor}
         onToggleSidebar={toggleSidebar}
+        onSetAutoSaveEnabled={setAutoSaveEnabled}
+        onSetAutoSaveInterval={setAutoSaveInterval}
       />
       <main className="flex-1">
         {renderMainContent()}

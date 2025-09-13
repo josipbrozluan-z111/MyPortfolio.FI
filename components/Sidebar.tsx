@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Topic, PortfolioEntry } from '../types';
-import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon, HomeIcon } from './Icons';
+import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 interface SidebarProps {
   topics: Topic[];
   activeEntryId: string | null;
   accentColor: string;
   isCollapsed: boolean;
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number;
   onSelectEntry: (id: string) => void;
   onCreateTopic: () => void;
   onCreateEntry: (topicId: string) => void;
@@ -16,6 +18,8 @@ interface SidebarProps {
   onTriggerUpload: () => void;
   onSetAccentColor: (color: string) => void;
   onToggleSidebar: () => void;
+  onSetAutoSaveEnabled: (enabled: boolean) => void;
+  onSetAutoSaveInterval: (interval: number) => void;
 }
 
 const ACCENT_COLORS = [
@@ -29,13 +33,12 @@ const ACCENT_COLORS = [
 
 interface EntryListItemProps {
   entry: PortfolioEntry;
-  topicName?: string;
   isActive: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-const EntryListItem: React.FC<EntryListItemProps> = ({ entry, topicName, isActive, onSelect, onDelete }) => (
+const EntryListItem: React.FC<EntryListItemProps> = ({ entry, isActive, onSelect, onDelete }) => (
     <div
         onClick={() => onSelect(entry.id)}
         className={`group flex justify-between items-center p-2.5 pl-3 rounded-md cursor-pointer transition-colors ${
@@ -48,9 +51,6 @@ const EntryListItem: React.FC<EntryListItemProps> = ({ entry, topicName, isActiv
             <p className={`font-semibold text-sm truncate ${isActive ? 'accent-text' : ''}`}>{entry.title || 'Untitled Entry'}</p>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                 <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
-                {topicName && (
-                     <span className="px-1.5 py-0.5 bg-gray-300/50 dark:bg-gray-600/50 rounded text-gray-600 dark:text-gray-300 text-[10px] font-medium truncate">{topicName}</span>
-                )}
             </div>
         </div>
         <button
@@ -63,11 +63,33 @@ const EntryListItem: React.FC<EntryListItemProps> = ({ entry, topicName, isActiv
     </div>
 );
 
+const ToggleSwitch: React.FC<{ checked: boolean; onChange: (checked: boolean) => void }> = ({ checked, onChange }) => (
+    <button
+        type="button"
+        className={`${
+            checked ? 'accent-bg' : 'bg-gray-400 dark:bg-gray-600'
+        } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ring-accent focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-200 dark:focus:ring-offset-gray-700`}
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+    >
+        <span
+            aria-hidden="true"
+            className={`${
+                checked ? 'translate-x-5' : 'translate-x-0'
+            } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+        />
+    </button>
+);
+
+
 const Sidebar: React.FC<SidebarProps> = ({
   topics,
   activeEntryId,
   accentColor,
   isCollapsed,
+  autoSaveEnabled,
+  autoSaveInterval,
   onSelectEntry,
   onCreateTopic,
   onCreateEntry,
@@ -77,15 +99,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onTriggerUpload,
   onSetAccentColor,
   onToggleSidebar,
+  onSetAutoSaveEnabled,
+  onSetAutoSaveInterval,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [isHomeViewExpanded, setIsHomeViewExpanded] = useState(true);
   const settingsRef = useRef<HTMLDivElement>(null);
-
-  const allEntriesWithTopic = topics.flatMap(topic => 
-    topic.entries.map(entry => ({ ...entry, topicName: topic.name }))
-  );
 
   useEffect(() => {
     // Populate expanded topics on initial load
@@ -153,39 +172,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {!isCollapsed ? (
         <div className="flex-grow p-2 overflow-y-auto">
-            {/* Home View Section */}
-            <div
-                onClick={() => setIsHomeViewExpanded(!isHomeViewExpanded)}
-                className="group flex justify-between items-center p-2 rounded-md cursor-pointer hover:bg-black/5 dark:hover:bg-gray-700/50 transition-colors mb-2"
-            >
-                <div className="flex items-center gap-2 flex-1 truncate">
-                    <HomeIcon className="w-5 h-5 accent-text flex-shrink-0" />
-                    <span className="font-semibold text-sm text-gray-700 dark:text-gray-200 truncate">Home</span>
-                </div>
-                <ChevronDownIcon className={`w-5 h-5 text-gray-400 transform transition-transform ${isHomeViewExpanded ? 'rotate-180' : ''}`} />
-            </div>
-
-            {isHomeViewExpanded && (
-                <div className="pl-4 pt-1 mb-2 space-y-1 border-l-2 border-gray-300 dark:border-gray-700 ml-2">
-                    {allEntriesWithTopic.length > 0 ? (
-                        allEntriesWithTopic.map((entry) => (
-                          <EntryListItem
-                            key={entry.id}
-                            entry={entry}
-                            topicName={entry.topicName}
-                            isActive={activeEntryId === entry.id}
-                            onSelect={onSelectEntry}
-                            onDelete={onDeleteEntry}
-                          />
-                        ))
-                    ) : (
-                        <div className="p-2.5 pl-3 text-sm text-gray-500 dark:text-gray-400">No entries yet.</div>
-                    )}
-                </div>
-            )}
-
-            <div className="h-px bg-gray-300/50 dark:bg-gray-700/50 my-2"></div>
-
             <button
             onClick={onCreateTopic}
             className="w-full flex items-center justify-center gap-2 mb-2 px-4 py-2 text-sm font-medium text-white accent-bg accent-bg-hover rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 ring-accent transition-all"
@@ -225,7 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 {expandedTopics.has(topic.id) && (
                     <div className="pl-4 pt-1 space-y-1 border-l-2 border-gray-300 dark:border-gray-700 ml-2">
-                        {topic.entries.map((entry) => (
+                        {topic.entries.length > 0 ? topic.entries.map((entry) => (
                             <EntryListItem
                                 key={entry.id}
                                 entry={entry}
@@ -233,7 +219,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 onSelect={onSelectEntry}
                                 onDelete={onDeleteEntry}
                             />
-                        ))}
+                        )) : (
+                            <div className="p-2.5 pl-3 text-sm text-gray-500 dark:text-gray-400">No entries in this topic.</div>
+                        )}
                     </div>
                 )}
                 </div>
@@ -246,33 +234,60 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       <div ref={settingsRef} className="p-4 border-t border-gray-300/50 dark:border-gray-700/50 relative">
           {!isCollapsed && settingsOpen && (
-              <div className="absolute bottom-full left-4 right-4 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-md shadow-lg border border-gray-300/50 dark:border-gray-600/50">
-                  <div className="p-2">
-                      <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">ACCENT COLOR</div>
-                      <div className="grid grid-cols-6 gap-2">
-                          {ACCENT_COLORS.map(color => (
-                              <button 
-                                  key={color}
-                                  onClick={() => onSetAccentColor(color)}
-                                  className={`w-full h-8 rounded-md transition-transform transform hover:scale-110 ${accentColor === color ? 'ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent' : ''}`}
-                                  style={{ backgroundColor: color }}
-                                  aria-label={`Set accent color to ${color}`}
-                              />
-                          ))}
+              <div className="absolute bottom-full left-4 right-4 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-md shadow-lg border border-gray-300/50 dark:border-gray-600/50 text-sm text-gray-800 dark:text-white">
+                  <div className="p-2 space-y-4">
+                      <div>
+                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">ACCENT COLOR</div>
+                        <div className="grid grid-cols-6 gap-2">
+                            {ACCENT_COLORS.map(color => (
+                                <button 
+                                    key={color}
+                                    onClick={() => onSetAccentColor(color)}
+                                    className={`w-full h-8 rounded-md transition-transform transform hover:scale-110 ${accentColor === color ? 'ring-2 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-700 ring-accent' : ''}`}
+                                    style={{ backgroundColor: color }}
+                                    aria-label={`Set accent color to ${color}`}
+                                />
+                            ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">AUTO-SAVE</div>
+                        <div className="flex items-center justify-between">
+                            <label htmlFor="auto-save-toggle" className="font-medium">Enable Auto-save</label>
+                            <ToggleSwitch checked={autoSaveEnabled} onChange={onSetAutoSaveEnabled} />
+                        </div>
+                        <div className={`mt-3 ${!autoSaveEnabled ? 'opacity-50' : ''}`}>
+                            <label htmlFor="auto-save-interval" className="block font-medium">
+                                Save Interval: <span className="font-bold">{(autoSaveInterval / 1000).toFixed(1)}s</span>
+                            </label>
+                            <input
+                                id="auto-save-interval"
+                                type="range"
+                                min="500"
+                                max="5000"
+                                step="250"
+                                value={autoSaveInterval}
+                                onChange={e => onSetAutoSaveInterval(Number(e.target.value))}
+                                disabled={!autoSaveEnabled}
+                                className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-bg"
+                            />
+                        </div>
                       </div>
                   </div>
+
                   <div className="border-t border-gray-300/50 dark:border-gray-600/50 my-2"></div>
                   <div className="space-y-1 p-1">
                       <button
                           onClick={() => { onTriggerUpload(); setSettingsOpen(false); }}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-800 dark:text-white rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left"
                       >
                           <UploadIcon className="w-5 h-5" />
                           Import Project
                       </button>
                       <button
                           onClick={() => { onDownload(); setSettingsOpen(false); }}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-800 dark:text-white rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left"
                       >
                           <DownloadIcon className="w-5 h-5" />
                           Export Project

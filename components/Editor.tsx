@@ -4,8 +4,7 @@ import {
     TrashIcon, HighlightIcon, TextColorIcon, UndoIcon, RedoIcon, PrintIcon, ChevronDownIcon, 
     BoldIcon, ItalicIcon, UnderlineIcon, LinkIcon, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, 
     AlignJustifyIcon, ListBulletedIcon, ListNumberedIcon, OutdentIcon, IndentIcon, ClearFormattingIcon,
-    PlusIcon, MinusIcon, SearchIcon, FormatPainterIcon, AddCommentIcon, LineSpacingIcon, ChecklistIcon, MoreVerticalIcon,
-    ImageIcon
+    ImageIcon, SaveIcon, SpinnerIcon, CheckCircleIcon, ExclamationCircleIcon
 } from './Icons';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -18,6 +17,8 @@ interface EditorProps {
   isSidebarCollapsed: boolean;
   saveStatus: SaveStatus;
   saveError: string | null;
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number;
 }
 
 const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; isActive?: boolean; title: string; children: React.ReactNode; disabled?: boolean; className?: string }> = 
@@ -42,18 +43,6 @@ const ToolbarButton: React.FC<{ onClick?: (e: React.MouseEvent) => void; onMouse
     );
 };
 
-const ToolbarDropdown: React.FC<{ label: React.ReactNode; children: React.ReactNode; widthClass?: string; }> = ({ label, children, widthClass = "w-40" }) => (
-    <div className="relative group">
-        <button className="flex items-center gap-1 p-2 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-            {label}
-            <ChevronDownIcon className="w-4 h-4" />
-        </button>
-        <div className={`absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block ${widthClass} z-20`}>
-            {children}
-        </div>
-    </div>
-);
-
 const ToolbarSeparator: React.FC = () => (
     <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 );
@@ -61,21 +50,64 @@ const ToolbarSeparator: React.FC = () => (
 const FONT_FAMILIES = ['Arial', 'Verdana', 'Times New Roman', 'Georgia', 'Courier New', 'Lucida Console'];
 const FONT_SIZE_MAP: { [key: number]: number } = { 1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36 };
 
-const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<HTMLDivElement>, onTriggerImageUpload: () => void }> = ({ accentColor, editorRef, onTriggerImageUpload }) => {
+const SaveStatusIndicator: React.FC<{
+    status: SaveStatus;
+    error: string | null;
+    autoSaveEnabled: boolean;
+    hasPendingChanges: boolean;
+    onManualSave: () => void;
+}> = ({ status, error, autoSaveEnabled, hasPendingChanges, onManualSave }) => {
+    if (status === 'saving') {
+        return <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"><SpinnerIcon className="w-4 h-4 animate-spin" /> Saving...</div>;
+    }
+    if (status === 'saved') {
+        return <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400"><CheckCircleIcon className="w-4 h-4" /> Saved</div>;
+    }
+    if (status === 'error') {
+        return <div className="flex items-center gap-2 text-sm text-red-500 dark:text-red-400" title={error || ''}><ExclamationCircleIcon className="w-4 h-4" /> Error</div>;
+    }
+    if (!autoSaveEnabled) {
+        return (
+            <button
+                onClick={onManualSave}
+                disabled={!hasPendingChanges}
+                className="flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60 enabled:accent-bg enabled:text-white enabled:accent-bg-hover"
+            >
+                <SaveIcon className="w-4 h-4"/>
+                {hasPendingChanges ? 'Save' : 'Saved'}
+            </button>
+        );
+    }
+    if (hasPendingChanges) {
+        return <div className="text-sm text-gray-500 dark:text-gray-400">Unsaved changes...</div>
+    }
+    return null; // idle and no pending changes
+};
+
+
+const EditorToolbar: React.FC<{ 
+    accentColor: string; 
+    editorRef: React.RefObject<HTMLDivElement>;
+    onTriggerImageUpload: () => void;
+    saveStatus: SaveStatus;
+    saveError: string | null;
+    autoSaveEnabled: boolean;
+    hasPendingChanges: boolean;
+    onManualSave: () => void;
+}> = (props) => {
     const [isBold, setIsBold] = useState(false);
     const [isItalic, setIsItalic] = useState(false);
     const [isUnderline, setIsUnderline] = useState(false);
     const [alignment, setAlignment] = useState('left');
-    const [fontSize, setFontSize] = useState(3);
     
     const execCmd = (command: string, value?: string) => {
         document.execCommand(command, false, value);
-        editorRef.current?.focus();
+        props.editorRef.current?.focus();
         updateToolbarState();
     };
     
     const updateToolbarState = useCallback(() => {
-        if (!editorRef.current) return;
+        if (!props.editorRef.current) return;
         setIsBold(document.queryCommandState('bold'));
         setIsItalic(document.queryCommandState('italic'));
         setIsUnderline(document.queryCommandState('underline'));
@@ -88,15 +120,10 @@ const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<
         else if (isJustify) setAlignment('justify');
         else setAlignment('left');
 
-        const sizeValue = parseInt(document.queryCommandValue('fontSize'), 10);
-        if (!isNaN(sizeValue) && sizeValue >= 1 && sizeValue <= 7) {
-            setFontSize(sizeValue);
-        }
-
-    }, [editorRef]);
+    }, [props.editorRef]);
 
     useEffect(() => {
-        const editor = editorRef.current;
+        const editor = props.editorRef.current;
         const handleSelectionChange = () => {
             if (document.activeElement === editor) {
                 updateToolbarState();
@@ -112,15 +139,7 @@ const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<
             editor?.removeEventListener('click', updateToolbarState);
             editor?.removeEventListener('keyup', updateToolbarState);
         }
-    }, [updateToolbarState, editorRef]);
-
-
-    const ALL_COLORS = [
-        { name: 'Accent', value: accentColor },
-        '#ef4444', '#f97316', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef',
-        '#f43f5e', '#fca5a5', '#fdba74', '#bef264', '#86efac', '#67e8f9', '#93c5fd', '#c4b5fd', '#f0abfc',
-        '#ec4899', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827', '#000000',
-    ];
+    }, [updateToolbarState, props.editorRef]);
 
     const ColorPicker: React.FC<{ command: 'foreColor' | 'hiliteColor' }> = ({ command }) => (
         <div className="relative group">
@@ -128,58 +147,21 @@ const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<
                 {command === 'foreColor' ? <TextColorIcon /> : <HighlightIcon />}
             </ToolbarButton>
             <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block z-20">
-                <div className="flex flex-col gap-2 p-2">
-                    <div className="flex gap-2">
-                        {ALL_COLORS.slice(0, 10).map((color, index) => (
-                            <button key={index} onMouseDown={(e) => { e.preventDefault(); execCmd(command, typeof color === 'object' ? color.value : color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: typeof color === 'object' ? color.value : color }} title={typeof color === 'object' ? color.name : color}></button>
-                        ))}
-                    </div>
-                    <div className="flex gap-2">
-                        {ALL_COLORS.slice(10).map((color, index) => (
-                            <button key={index} onMouseDown={(e) => { e.preventDefault(); execCmd(command, typeof color === 'object' ? color.value : color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: typeof color === 'object' ? color.value : color }} title={typeof color === 'object' ? color.name : color}></button>
-                        ))}
-                    </div>
-                </div>
+              <div className="grid grid-cols-9 gap-1">
+                <button onMouseDown={(e) => { e.preventDefault(); execCmd(command, props.accentColor); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: props.accentColor }} title="Accent"></button>
+                {['#ef4444', '#f97316', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e', '#ec4899', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#000000'].map((color) => (
+                    <button key={color} onMouseDown={(e) => { e.preventDefault(); execCmd(command, color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: color }} title={color}></button>
+                ))}
+              </div>
             </div>
         </div>
     );
     
-    const AlignmentPicker = () => {
-      const icons: { [key: string]: React.ReactNode } = {
-        left: <AlignLeftIcon />,
-        center: <AlignCenterIcon />,
-        right: <AlignRightIcon />,
-        justify: <AlignJustifyIcon />,
-      };
-      const alignments = [
-          { name: 'left', command: 'justifyLeft', icon: <AlignLeftIcon /> },
-          { name: 'center', command: 'justifyCenter', icon: <AlignCenterIcon /> },
-          { name: 'right', command: 'justifyRight', icon: <AlignRightIcon /> },
-          { name: 'justify', command: 'justifyFull', icon: <AlignJustifyIcon /> },
-      ];
-      return (
-          <div className="relative group">
-              <button className="flex items-center gap-1 p-1.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                  {icons[alignment]}
-                  <ChevronDownIcon className="w-4 h-4" />
-              </button>
-              <div className="absolute top-full left-0 mt-1 p-1 bg-white dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block z-20">
-                  {alignments.map(item => (
-                      <button key={item.name} onMouseDown={(e) => { e.preventDefault(); execCmd(item.command); }} className="block w-full text-left p-2 rounded hover:bg-black/5 dark:hover:bg-white/5">
-                          {item.icon}
-                      </button>
-                  ))}
-              </div>
-          </div>
-      );
-    }
-
     return (
         <div className="editor-toolbar flex items-center gap-1 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-300/50 dark:border-gray-700/50 sticky top-0 z-10 backdrop-blur-sm">
             <ToolbarButton title="Undo" onClick={() => execCmd('undo')}><UndoIcon /></ToolbarButton>
             <ToolbarButton title="Redo" onClick={() => execCmd('redo')}><RedoIcon /></ToolbarButton>
             <ToolbarButton title="Print" onClick={() => window.print()}><PrintIcon /></ToolbarButton>
-            
             <ToolbarSeparator />
             <ToolbarButton title="Bold" onClick={() => execCmd('bold')} isActive={isBold}><BoldIcon /></ToolbarButton>
             <ToolbarButton title="Italic" onClick={() => execCmd('italic')} isActive={isItalic}><ItalicIcon /></ToolbarButton>
@@ -187,75 +169,107 @@ const EditorToolbar: React.FC<{ accentColor: string; editorRef: React.RefObject<
             <ColorPicker command="foreColor" />
             <ColorPicker command="hiliteColor" />
             <ToolbarSeparator />
-
-            <AlignmentPicker />
+            <ToolbarButton title="Align Left" onClick={() => execCmd('justifyLeft')} isActive={alignment === 'left'}><AlignLeftIcon /></ToolbarButton>
+            <ToolbarButton title="Align Center" onClick={() => execCmd('justifyCenter')} isActive={alignment === 'center'}><AlignCenterIcon /></ToolbarButton>
+            <ToolbarButton title="Align Right" onClick={() => execCmd('justifyRight')} isActive={alignment === 'right'}><AlignRightIcon /></ToolbarButton>
             <ToolbarButton title="Bulleted List" onClick={() => execCmd('insertUnorderedList')}><ListBulletedIcon /></ToolbarButton>
             <ToolbarButton title="Numbered List" onClick={() => execCmd('insertOrderedList')}><ListNumberedIcon /></ToolbarButton>
             <ToolbarButton title="Decrease Indent" onClick={() => execCmd('outdent')}><OutdentIcon /></ToolbarButton>
             <ToolbarButton title="Increase Indent" onClick={() => execCmd('indent')}><IndentIcon /></ToolbarButton>
-
             <ToolbarSeparator />
-
-            <ToolbarButton title="Insert Image" onClick={onTriggerImageUpload}><ImageIcon /></ToolbarButton>
+            <ToolbarButton title="Insert Image" onClick={props.onTriggerImageUpload}><ImageIcon /></ToolbarButton>
             <ToolbarButton title="Insert Link" onClick={() => {const url = prompt('Enter a URL:'); if(url) execCmd('createLink', url);}}><LinkIcon /></ToolbarButton>
-            
             <ToolbarSeparator />
             <ToolbarButton title="Clear Formatting" onClick={() => execCmd('removeFormat')}><ClearFormattingIcon /></ToolbarButton>
+
+            <div className="ml-auto">
+                <SaveStatusIndicator 
+                    status={props.saveStatus}
+                    error={props.saveError}
+                    autoSaveEnabled={props.autoSaveEnabled}
+                    hasPendingChanges={props.hasPendingChanges}
+                    onManualSave={props.onManualSave}
+                />
+            </div>
         </div>
     );
 };
 
 
-const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, isSidebarCollapsed, saveStatus, saveError }) => {
+const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, isSidebarCollapsed, saveStatus, saveError, autoSaveEnabled, autoSaveInterval }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   
-  // Ref to hold pending updates
-  const pendingUpdatesRef = useRef<Partial<PortfolioEntry>>({});
-
-  const updateEntry = useCallback(
-    (updates: Partial<PortfolioEntry>) => {
-        onUpdate(entry.id, updates);
-    },
-    [entry.id, onUpdate]
-  );
+  // Refs to hold the latest props and state, preventing stale closures in callbacks.
+  const updateCallbackRef = useRef(onUpdate);
+  const entryIdRef = useRef(entry.id);
+  const autoSaveEnabledRef = useRef(autoSaveEnabled);
+  const autoSaveIntervalRef = useRef(autoSaveInterval);
   
-  const debouncedUpdate = useRef(
-    ((callback: (updates: Partial<PortfolioEntry>) => void, delay: number) => {
-      let timeout: number;
-      return (updates: Partial<PortfolioEntry>) => {
-        // Merge new updates with pending updates
-        pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...updates };
-
-        clearTimeout(timeout);
-        timeout = window.setTimeout(() => {
-          if (Object.keys(pendingUpdatesRef.current).length > 0) {
-            callback(pendingUpdatesRef.current);
-            pendingUpdatesRef.current = {}; // Clear after saving
-          }
-        }, delay);
-      };
-    })(updateEntry, 1000)
-  ).current;
+  useEffect(() => {
+    updateCallbackRef.current = onUpdate;
+    entryIdRef.current = entry.id;
+  }, [onUpdate, entry.id]);
 
   useEffect(() => {
+      autoSaveEnabledRef.current = autoSaveEnabled;
+      autoSaveIntervalRef.current = autoSaveInterval;
+  }, [autoSaveEnabled, autoSaveInterval]);
+
+
+  // A more robust debounced update function that can be controlled by props.
+  const debouncedUpdateManager = useRef(
+    (() => {
+        let timeout: number;
+        let pendingUpdates: Partial<PortfolioEntry> = {};
+        
+        const flush = () => {
+            clearTimeout(timeout);
+            if (Object.keys(pendingUpdates).length > 0) {
+                updateCallbackRef.current(entryIdRef.current, pendingUpdates);
+                pendingUpdates = {};
+            }
+        };
+        
+        const update = (updates: Partial<PortfolioEntry>) => {
+            setHasPendingChanges(true);
+            pendingUpdates = { ...pendingUpdates, ...updates };
+            
+            clearTimeout(timeout);
+            if (autoSaveEnabledRef.current) {
+                timeout = window.setTimeout(flush, autoSaveIntervalRef.current);
+            }
+        };
+
+        return { update, flush };
+    })()
+  ).current;
+
+  // Effect to sync the editor's content when the entry prop changes.
+  useEffect(() => {
+    setHasPendingChanges(false); // Reset pending changes on entry switch
     if (editorRef.current && editorRef.current.innerHTML !== entry.content) {
       editorRef.current.innerHTML = entry.content;
     }
     if (titleInputRef.current && titleInputRef.current.value !== entry.title) {
         titleInputRef.current.value = entry.title;
     }
-    // When entry changes, clear any pending updates for the old entry
-    pendingUpdatesRef.current = {};
   }, [entry]);
+
+  // When a save is confirmed, mark that we no longer have pending changes
+  useEffect(() => {
+      if (saveStatus === 'saved') {
+          setHasPendingChanges(false);
+      }
+  }, [saveStatus]);
 
   const handleContentChange = () => {
     if (editorRef.current) {
       const newContent = editorRef.current.innerHTML;
       const updates: Partial<PortfolioEntry> = { content: newContent };
       
-      // If the entry title is empty or a placeholder, try to extract one.
       const currentTitle = titleInputRef.current?.value.trim();
       const placeholderTitles = ['new entry', 'untitled entry', 'my first entry'];
       if (!currentTitle || placeholderTitles.includes(currentTitle.toLowerCase())) {
@@ -267,28 +281,30 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         if (firstHeader && firstHeader.textContent) {
           newTitle = firstHeader.textContent;
         } else {
-          // Fallback to the first non-empty line of text
           newTitle = (tempDiv.textContent || '').split('\n').find(line => line.trim() !== '') || '';
         }
 
-        newTitle = newTitle.trim().substring(0, 100); // Limit title length
+        newTitle = newTitle.trim().substring(0, 100);
 
         if (newTitle && newTitle !== currentTitle) {
             updates.title = newTitle;
-            // Also update the input field visually
             if (titleInputRef.current) {
                 titleInputRef.current.value = newTitle;
             }
         }
       }
 
-      debouncedUpdate(updates);
+      debouncedUpdateManager.update(updates);
     }
   };
   
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      debouncedUpdate({ title: e.target.value });
+      debouncedUpdateManager.update({ title: e.target.value });
   };
+
+  const handleManualSave = () => {
+      debouncedUpdateManager.flush();
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {
@@ -298,6 +314,11 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         } else {
             document.execCommand('indent');
         }
+    }
+    // Manual save shortcut
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleManualSave();
     }
   }
 
@@ -316,8 +337,7 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
               if (!ctx) return;
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
               
-              // Get the compressed base64 string
-              const dataUrl = canvas.toDataURL(file.type, 0.8); // 80% quality
+              const dataUrl = canvas.toDataURL(file.type, 0.8);
               
               document.execCommand('insertImage', false, dataUrl);
               handleContentChange();
@@ -332,11 +352,10 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
     if (file) {
       compressAndInsertImage(file);
     }
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
   
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    // First, handle image pasting
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
@@ -344,78 +363,26 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
             if (file) {
                 e.preventDefault();
                 compressAndInsertImage(file);
-                return; // Image handled, stop further processing
+                return;
             }
         }
     }
   
-    // Next, handle HTML content for color correction in dark theme
     const pastedHtml = e.clipboardData.getData('text/html');
     if (pastedHtml) {
         e.preventDefault();
 
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = pastedHtml;
-
-        // Function to check if a color is black or very dark
-        const isBlackOrVeryDark = (color: string) => {
-            if (!color) return false;
-            color = color.toLowerCase().trim();
-            if (['black', '#000', '#000000', 'rgb(0, 0, 0)'].includes(color)) {
-                return true;
-            }
-            const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (rgbMatch) {
-                const r = parseInt(rgbMatch[1], 10);
-                const g = parseInt(rgbMatch[2], 10);
-                const b = parseInt(rgbMatch[3], 10);
-                // Consider color dark if average component is below a threshold (e.g., 35)
-                return (r + g + b) / 3 < 35;
-            }
-            return false;
-        };
-
-        // Traverse all elements in the pasted content and correct colors
-        const allElements = tempDiv.querySelectorAll('*');
-        allElements.forEach(el => {
-            const element = el as HTMLElement;
-            if (element.style && isBlackOrVeryDark(element.style.color)) {
-                element.style.color = '#FFFFFF'; // Change to white
-            }
-            if (element.tagName.toLowerCase() === 'font' && element.hasAttribute('color')) {
-                const colorAttr = element.getAttribute('color');
-                if (colorAttr && isBlackOrVeryDark(colorAttr)) {
-                    element.setAttribute('color', '#FFFFFF');
-                }
-            }
-        });
-        
         const cleanedHtml = tempDiv.innerHTML;
         document.execCommand('insertHTML', false, cleanedHtml);
         
-        // Explicitly trigger content change handler to ensure save
         setTimeout(handleContentChange, 0);
 
     } else {
-      // For plain text, let the browser handle the paste. The `onInput` event will trigger the save.
-      // This timeout is a fallback for edge cases where `onInput` might not fire reliably.
       setTimeout(handleContentChange, 100);
     }
   };
-
-  const getSaveStatusMessage = () => {
-    switch (saveStatus) {
-        case 'saving':
-            return <p className="text-sm text-gray-500 dark:text-gray-400">Saving...</p>;
-        case 'saved':
-            return <p className="text-sm text-green-600 dark:text-green-400">Saved</p>;
-        case 'error':
-            return <p className="text-sm text-red-500 dark:text-red-400" title={saveError || "Could not save. Please check storage permissions or try exporting your work."}>Error saving</p>;
-        default:
-            return null;
-    }
-  };
-
 
   return (
     <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
@@ -423,6 +390,11 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         accentColor={accentColor} 
         editorRef={editorRef} 
         onTriggerImageUpload={() => imageInputRef.current?.click()}
+        saveStatus={saveStatus}
+        saveError={saveError}
+        autoSaveEnabled={autoSaveEnabled}
+        hasPendingChanges={hasPendingChanges}
+        onManualSave={handleManualSave}
       />
       <div className="flex-grow overflow-y-auto">
         <div className={`mx-auto ${isSidebarCollapsed ? 'max-w-4xl' : 'max-w-3xl'} p-4`}>
@@ -436,7 +408,6 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
                     className="text-4xl font-bold bg-transparent focus:outline-none w-full text-gray-900 dark:text-white"
                 />
                  <div className="flex items-center gap-4">
-                    {getSaveStatusMessage()}
                     <button onClick={() => onDelete(entry.id)} title="Delete Entry" className="p-2 text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-400 rounded-full transition-colors">
                         <TrashIcon className="w-5 h-5"/>
                     </button>
