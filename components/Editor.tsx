@@ -211,6 +211,9 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
   const titleInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
+  // Ref to hold pending updates
+  const pendingUpdatesRef = useRef<Partial<PortfolioEntry>>({});
+
   const updateEntry = useCallback(
     (updates: Partial<PortfolioEntry>) => {
         onUpdate(entry.id, updates);
@@ -222,9 +225,15 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
     ((callback: (updates: Partial<PortfolioEntry>) => void, delay: number) => {
       let timeout: number;
       return (updates: Partial<PortfolioEntry>) => {
+        // Merge new updates with pending updates
+        pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...updates };
+
         clearTimeout(timeout);
         timeout = window.setTimeout(() => {
-          callback(updates);
+          if (Object.keys(pendingUpdatesRef.current).length > 0) {
+            callback(pendingUpdatesRef.current);
+            pendingUpdatesRef.current = {}; // Clear after saving
+          }
         }, delay);
       };
     })(updateEntry, 1000)
@@ -237,11 +246,43 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
     if (titleInputRef.current && titleInputRef.current.value !== entry.title) {
         titleInputRef.current.value = entry.title;
     }
+    // When entry changes, clear any pending updates for the old entry
+    pendingUpdatesRef.current = {};
   }, [entry]);
 
   const handleContentChange = () => {
     if (editorRef.current) {
-      debouncedUpdate({ content: editorRef.current.innerHTML });
+      const newContent = editorRef.current.innerHTML;
+      const updates: Partial<PortfolioEntry> = { content: newContent };
+      
+      // If the entry title is empty or a placeholder, try to extract one.
+      const currentTitle = titleInputRef.current?.value.trim();
+      const placeholderTitles = ['new entry', 'untitled entry', 'my first entry'];
+      if (!currentTitle || placeholderTitles.includes(currentTitle.toLowerCase())) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newContent;
+        const firstHeader = tempDiv.querySelector('h1, h2, h3, h4, h5, h6');
+        let newTitle = '';
+
+        if (firstHeader && firstHeader.textContent) {
+          newTitle = firstHeader.textContent;
+        } else {
+          // Fallback to the first non-empty line of text
+          newTitle = (tempDiv.textContent || '').split('\n').find(line => line.trim() !== '') || '';
+        }
+
+        newTitle = newTitle.trim().substring(0, 100); // Limit title length
+
+        if (newTitle && newTitle !== currentTitle) {
+            updates.title = newTitle;
+            // Also update the input field visually
+            if (titleInputRef.current) {
+                titleInputRef.current.value = newTitle;
+            }
+        }
+      }
+
+      debouncedUpdate(updates);
     }
   };
   
@@ -351,6 +392,9 @@ const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor,
         
         const cleanedHtml = tempDiv.innerHTML;
         document.execCommand('insertHTML', false, cleanedHtml);
+        
+        // Explicitly trigger content change handler to ensure save
+        setTimeout(handleContentChange, 0);
 
     } else {
       // For plain text, let the browser handle the paste. The `onInput` event will trigger the save.
