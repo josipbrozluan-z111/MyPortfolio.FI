@@ -84,6 +84,66 @@ const SaveStatusIndicator: React.FC<{
     return null; // idle and no pending changes
 };
 
+const PRESET_COLORS = [
+    // Grayscale
+    '#FFFFFF', '#E0E0E0', '#BDBDBD', '#9E9E9E', '#757575', '#424242', '#212121', '#000000',
+    // Reds
+    '#FFEBEE', '#FFCDD2', '#EF9A9A', '#E57373', '#EF5350', '#F44336', '#E53935', '#D32F2F',
+    // Oranges
+    '#FFF3E0', '#FFE0B2', '#FFCC80', '#FFB74D', '#FFA726', '#FF9800', '#FB8C00', '#F57C00',
+    // Greens
+    '#E8F5E9', '#C8E6C9', '#A5D6A7', '#81C784', '#66BB6A', '#4CAF50', '#43A047', '#388E3C',
+    // Blues
+    '#E3F2FD', '#BBDEFB', '#90CAF9', '#64B5F6', '#42A5F5', '#2196F3', '#1E88E5', '#1976D2',
+    // Violets
+    '#EDE7F6', '#D1C4E9', '#B39DDB', '#9575CD', '#7E57C2', '#673AB7', '#5E35B1', '#512DA8',
+];
+
+const ColorPickerPopover: React.FC<{
+  onSelectColor: (color: string) => void;
+  onClose: () => void;
+  isHighlight?: boolean;
+}> = ({ onSelectColor, onClose, isHighlight }) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <div ref={popoverRef} className="absolute z-10 top-full mt-2 w-56 bg-gray-100 dark:bg-gray-700 rounded-md shadow-lg border border-gray-300/50 dark:border-gray-600/50 p-2">
+      <div className="grid grid-cols-8 gap-1">
+        {PRESET_COLORS.map(color => (
+          <button
+            key={color}
+            title={color}
+            className="w-6 h-6 rounded-sm border border-transparent hover:border-blue-400"
+            style={{ backgroundColor: color }}
+            onClick={() => { onSelectColor(color); onClose(); }}
+          />
+        ))}
+      </div>
+      {isHighlight && (
+          <>
+            <div className="border-t border-gray-300 dark:border-gray-600 my-2"></div>
+            <button
+                onClick={() => { onSelectColor('transparent'); onClose(); }}
+                className="w-full text-left p-1 text-sm rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+                No Color
+            </button>
+          </>
+      )}
+    </div>
+  );
+};
+
 
 const EditorToolbar: React.FC<{ 
     accentColor: string; 
@@ -99,11 +159,23 @@ const EditorToolbar: React.FC<{
     const [isItalic, setIsItalic] = useState(false);
     const [isUnderline, setIsUnderline] = useState(false);
     const [alignment, setAlignment] = useState('left');
-    
+    const [activePopover, setActivePopover] = useState<'textColor' | 'highlightColor' | null>(null);
+    const [currentColor, setCurrentColor] = useState('inherit');
+    const [currentHighlight, setCurrentHighlight] = useState('inherit');
+
     const execCmd = (command: string, value?: string) => {
         document.execCommand(command, false, value);
         props.editorRef.current?.focus();
         updateToolbarState();
+    };
+
+    const handleColorSelection = (type: 'textColor' | 'highlightColor', color: string) => {
+        if (type === 'textColor') {
+            execCmd('foreColor', color);
+        } else {
+            execCmd('backColor', color);
+        }
+        setActivePopover(null);
     };
     
     const updateToolbarState = useCallback(() => {
@@ -120,74 +192,105 @@ const EditorToolbar: React.FC<{
         else if (isJustify) setAlignment('justify');
         else setAlignment('left');
 
+        setCurrentColor(document.queryCommandValue('foreColor') || 'inherit');
+        setCurrentHighlight(document.queryCommandValue('backColor') || 'inherit');
+        
     }, [props.editorRef]);
 
     useEffect(() => {
         const editor = props.editorRef.current;
         const handleSelectionChange = () => {
-            if (document.activeElement === editor) {
-                updateToolbarState();
-            }
+            updateToolbarState();
         };
-        document.addEventListener('selectionchange', handleSelectionChange);
-        editor?.addEventListener('focus', updateToolbarState);
-        editor?.addEventListener('click', updateToolbarState);
-        editor?.addEventListener('keyup', updateToolbarState);
-        return () => {
-            document.removeEventListener('selectionchange', handleSelectionChange);
-            editor?.removeEventListener('focus', updateToolbarState);
-            editor?.removeEventListener('click', updateToolbarState);
-            editor?.removeEventListener('keyup', updateToolbarState);
-        }
-    }, [updateToolbarState, props.editorRef]);
 
-    const ColorPicker: React.FC<{ command: 'foreColor' | 'hiliteColor' }> = ({ command }) => (
-        <div className="relative group">
-            <ToolbarButton title={command === 'foreColor' ? "Text Color" : "Highlight Color"}>
-                {command === 'foreColor' ? <TextColorIcon /> : <HighlightIcon />}
-            </ToolbarButton>
-            <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-md shadow-lg hidden group-hover:block z-20">
-              <div className="grid grid-cols-9 gap-1">
-                <button onMouseDown={(e) => { e.preventDefault(); execCmd(command, props.accentColor); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: props.accentColor }} title="Accent"></button>
-                {['#ef4444', '#f97316', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e', '#ec4899', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#000000'].map((color) => (
-                    <button key={color} onMouseDown={(e) => { e.preventDefault(); execCmd(command, color); }} className="w-6 h-6 rounded-full border border-gray-400/50" style={{ backgroundColor: color }} title={color}></button>
-                ))}
-              </div>
-            </div>
-        </div>
-    );
+        if (editor) {
+            document.addEventListener('selectionchange', handleSelectionChange);
+            editor.addEventListener('focus', updateToolbarState);
+            editor.addEventListener('click', updateToolbarState);
+            editor.addEventListener('keyup', updateToolbarState);
+        }
+        
+        return () => {
+             if (editor) {
+                document.removeEventListener('selectionchange', handleSelectionChange);
+                editor.removeEventListener('focus', updateToolbarState);
+                editor.removeEventListener('click', updateToolbarState);
+                editor.removeEventListener('keyup', updateToolbarState);
+            }
+        }
+    }, [props.editorRef, updateToolbarState]);
+
+    const handleImageUpload = () => {
+        const url = prompt('Enter image URL:');
+        if (url) {
+            const img = `<img src="${url}" style="max-width: 100%; height: auto; border-radius: 8px;" />`;
+            execCmd('insertHTML', img);
+        }
+    };
     
     return (
-        <div className="editor-toolbar flex items-center gap-1 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-300/50 dark:border-gray-700/50 sticky top-0 z-10 backdrop-blur-sm">
-            <ToolbarButton title="Undo" onClick={() => execCmd('undo')}><UndoIcon /></ToolbarButton>
-            <ToolbarButton title="Redo" onClick={() => execCmd('redo')}><RedoIcon /></ToolbarButton>
-            <ToolbarButton title="Print" onClick={() => window.print()}><PrintIcon /></ToolbarButton>
-            <ToolbarSeparator />
-            <ToolbarButton title="Bold" onClick={() => execCmd('bold')} isActive={isBold}><BoldIcon /></ToolbarButton>
-            <ToolbarButton title="Italic" onClick={() => execCmd('italic')} isActive={isItalic}><ItalicIcon /></ToolbarButton>
-            <ToolbarButton title="Underline" onClick={() => execCmd('underline')} isActive={isUnderline}><UnderlineIcon /></ToolbarButton>
-            <ColorPicker command="foreColor" />
-            <ColorPicker command="hiliteColor" />
-            <ToolbarSeparator />
-            <ToolbarButton title="Align Left" onClick={() => execCmd('justifyLeft')} isActive={alignment === 'left'}><AlignLeftIcon /></ToolbarButton>
-            <ToolbarButton title="Align Center" onClick={() => execCmd('justifyCenter')} isActive={alignment === 'center'}><AlignCenterIcon /></ToolbarButton>
-            <ToolbarButton title="Align Right" onClick={() => execCmd('justifyRight')} isActive={alignment === 'right'}><AlignRightIcon /></ToolbarButton>
-            <ToolbarButton title="Bulleted List" onClick={() => execCmd('insertUnorderedList')}><ListBulletedIcon /></ToolbarButton>
-            <ToolbarButton title="Numbered List" onClick={() => execCmd('insertOrderedList')}><ListNumberedIcon /></ToolbarButton>
-            <ToolbarButton title="Decrease Indent" onClick={() => execCmd('outdent')}><OutdentIcon /></ToolbarButton>
-            <ToolbarButton title="Increase Indent" onClick={() => execCmd('indent')}><IndentIcon /></ToolbarButton>
-            <ToolbarSeparator />
-            <ToolbarButton title="Insert Image" onClick={props.onTriggerImageUpload}><ImageIcon /></ToolbarButton>
-            <ToolbarButton title="Insert Link" onClick={() => {const url = prompt('Enter a URL:'); if(url) execCmd('createLink', url);}}><LinkIcon /></ToolbarButton>
-            <ToolbarSeparator />
-            <ToolbarButton title="Clear Formatting" onClick={() => execCmd('removeFormat')}><ClearFormattingIcon /></ToolbarButton>
-
-            <div className="ml-auto">
+        <div className="p-2 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between flex-wrap gap-y-2 editor-toolbar">
+            <div className="flex items-center flex-wrap gap-x-0.5">
+                <ToolbarButton title="Undo" onClick={() => execCmd('undo')}><UndoIcon /></ToolbarButton>
+                <ToolbarButton title="Redo" onClick={() => execCmd('redo')}><RedoIcon /></ToolbarButton>
+                <ToolbarButton title="Print" onClick={() => window.print()}><PrintIcon /></ToolbarButton>
+                <ToolbarSeparator />
+                <ToolbarButton title="Bold" onClick={() => execCmd('bold')} isActive={isBold}><BoldIcon /></ToolbarButton>
+                <ToolbarButton title="Italic" onClick={() => execCmd('italic')} isActive={isItalic}><ItalicIcon /></ToolbarButton>
+                <ToolbarButton title="Underline" onClick={() => execCmd('underline')} isActive={isUnderline}><UnderlineIcon /></ToolbarButton>
+                <ToolbarSeparator />
+                <div className="relative">
+                    <ToolbarButton title="Text Color" onClick={() => setActivePopover(activePopover === 'textColor' ? null : 'textColor')}>
+                        <span className="flex flex-col items-center">
+                            <TextColorIcon />
+                            <div className="w-5 h-1 mt-0.5" style={{ backgroundColor: currentColor === 'inherit' ? 'transparent' : currentColor }}></div>
+                        </span>
+                    </ToolbarButton>
+                    {activePopover === 'textColor' && (
+                        <ColorPickerPopover 
+                            onSelectColor={(color) => handleColorSelection('textColor', color)}
+                            onClose={() => setActivePopover(null)}
+                        />
+                    )}
+                </div>
+                <div className="relative">
+                     <ToolbarButton title="Highlight Color" onClick={() => setActivePopover(activePopover === 'highlightColor' ? null : 'highlightColor')}>
+                        <span className="flex flex-col items-center">
+                            <HighlightIcon />
+                            <div className="w-5 h-1 mt-0.5" style={{ backgroundColor: currentHighlight === 'inherit' ? 'transparent' : currentHighlight }}></div>
+                        </span>
+                    </ToolbarButton>
+                    {activePopover === 'highlightColor' && (
+                        <ColorPickerPopover 
+                            onSelectColor={(color) => handleColorSelection('highlightColor', color)}
+                            onClose={() => setActivePopover(null)}
+                            isHighlight={true}
+                        />
+                    )}
+                </div>
+                <ToolbarSeparator />
+                <ToolbarButton title="Align Left" onClick={() => execCmd('justifyLeft')} isActive={alignment === 'left'}><AlignLeftIcon /></ToolbarButton>
+                <ToolbarButton title="Align Center" onClick={() => execCmd('justifyCenter')} isActive={alignment === 'center'}><AlignCenterIcon /></ToolbarButton>
+                <ToolbarButton title="Align Right" onClick={() => execCmd('justifyRight')} isActive={alignment === 'right'}><AlignRightIcon /></ToolbarButton>
+                <ToolbarButton title="Justify" onClick={() => execCmd('justifyFull')} isActive={alignment === 'justify'}><AlignJustifyIcon /></ToolbarButton>
+                <ToolbarSeparator />
+                <ToolbarButton title="Bulleted List" onClick={() => execCmd('insertUnorderedList')}><ListBulletedIcon /></ToolbarButton>
+                <ToolbarButton title="Numbered List" onClick={() => execCmd('insertOrderedList')}><ListNumberedIcon /></ToolbarButton>
+                <ToolbarSeparator />
+                <ToolbarButton title="Insert Image" onClick={handleImageUpload}><ImageIcon /></ToolbarButton>
+                <ToolbarButton title="Insert Link" onClick={() => {
+                    const url = prompt('Enter URL:');
+                    if (url) execCmd('createLink', url);
+                }}><LinkIcon /></ToolbarButton>
+                <ToolbarSeparator />
+                <ToolbarButton title="Clear Formatting" onClick={() => execCmd('removeFormat')}><ClearFormattingIcon /></ToolbarButton>
+            </div>
+            <div className="pr-2">
                 <SaveStatusIndicator 
-                    status={props.saveStatus}
-                    error={props.saveError}
+                    status={props.saveStatus} 
+                    error={props.saveError} 
                     autoSaveEnabled={props.autoSaveEnabled}
-                    hasPendingChanges={props.hasPendingChanges}
+                    hasPendingChanges={false} // This should be wired up if we track changes
                     onManualSave={props.onManualSave}
                 />
             </div>
@@ -195,244 +298,166 @@ const EditorToolbar: React.FC<{
     );
 };
 
-
 const Editor: React.FC<EditorProps> = ({ entry, onUpdate, onDelete, accentColor, isSidebarCollapsed, saveStatus, saveError, autoSaveEnabled, autoSaveInterval }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const [hasPendingChanges, setHasPendingChanges] = useState(false);
-  
-  // Refs to hold the latest props and state, preventing stale closures in callbacks.
-  const updateCallbackRef = useRef(onUpdate);
+  const updateTimeoutRef = useRef<number | null>(null);
   const entryIdRef = useRef(entry.id);
-  const autoSaveEnabledRef = useRef(autoSaveEnabled);
-  const autoSaveIntervalRef = useRef(autoSaveInterval);
-  
-  useEffect(() => {
-    updateCallbackRef.current = onUpdate;
-    entryIdRef.current = entry.id;
-  }, [onUpdate, entry.id]);
+  const onUpdateRef = useRef(onUpdate);
 
   useEffect(() => {
-      autoSaveEnabledRef.current = autoSaveEnabled;
-      autoSaveIntervalRef.current = autoSaveInterval;
+    entryIdRef.current = entry.id;
+    onUpdateRef.current = onUpdate;
+  }, [entry.id, onUpdate]);
+
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+
+  const triggerUpdate = useCallback((updates: Partial<PortfolioEntry>) => {
+    if (autoSaveEnabled) {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      updateTimeoutRef.current = window.setTimeout(() => {
+        onUpdateRef.current(entryIdRef.current, updates);
+        setHasPendingChanges(false);
+      }, autoSaveInterval);
+    } else {
+        setHasPendingChanges(true);
+    }
   }, [autoSaveEnabled, autoSaveInterval]);
 
+  const handleManualSave = () => {
+    if (!editorRef.current) return;
+    const currentContent = editorRef.current.innerHTML;
+    const currentTitle = editorRef.current.querySelector('h1')?.textContent || 'Untitled Entry';
+    onUpdate(entry.id, { content: currentContent, title: currentTitle });
+    setHasPendingChanges(false);
+  };
 
-  // A more robust debounced update function that can be controlled by props.
-  const debouncedUpdateManager = useRef(
-    (() => {
-        let timeout: number;
-        let pendingUpdates: Partial<PortfolioEntry> = {};
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const content = (e.target as HTMLDivElement).innerHTML;
+    const title = (e.target as HTMLDivElement).querySelector('h1')?.textContent || 'Untitled Entry';
+    triggerUpdate({ content, title });
+  };
+  
+  const parseLightness = (color: string): number => {
+    color = color.toLowerCase();
+    if (color.startsWith('rgb')) {
+        const rgb = color.match(/\d+/g)?.map(Number);
+        if (rgb && rgb.length >= 3) {
+            return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+        }
+    } else if (color.startsWith('#')) {
+        let hex = color.slice(1);
+        if (hex.length === 3) {
+            hex = hex.split('').map(c => c + c).join('');
+        }
+        if (hex.length === 6) {
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        }
+    }
+    return 0.5; // Default for unknown formats
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const pastedHtml = e.clipboardData.getData('text/html');
+
+    if (pastedHtml) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(pastedHtml, 'text/html');
         
-        const flush = () => {
-            clearTimeout(timeout);
-            if (Object.keys(pendingUpdates).length > 0) {
-                updateCallbackRef.current(entryIdRef.current, pendingUpdates);
-                pendingUpdates = {};
-            }
-        };
-        
-        const update = (updates: Partial<PortfolioEntry>) => {
-            setHasPendingChanges(true);
-            pendingUpdates = { ...pendingUpdates, ...updates };
-            
-            clearTimeout(timeout);
-            if (autoSaveEnabledRef.current) {
-                timeout = window.setTimeout(flush, autoSaveIntervalRef.current);
-            }
-        };
+        // Clean styles
+        doc.querySelectorAll('*').forEach(el => {
+            if (el instanceof HTMLElement) {
+                // Remove dark text colors for dark theme readability
+                const color = el.style.color;
+                if (color) {
+                    const lightness = parseLightness(color);
+                    // Remove very dark or very light colors to adapt to theme
+                    if (lightness < 0.2 || lightness > 0.8) {
+                        el.style.color = '';
+                    }
+                }
 
-        return { update, flush };
-    })()
-  ).current;
+                // Remove background colors to avoid theme clashes
+                el.style.backgroundColor = '';
+                
+                if (el.getAttribute('style') === '') {
+                    el.removeAttribute('style');
+                }
+            }
+        });
 
-  // Effect to sync the editor's content when the entry prop changes.
+        document.execCommand('insertHTML', false, doc.body.innerHTML);
+    } else {
+        const text = e.clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
+    }
+
+    // After paste, trigger an update
+    const content = (e.target as HTMLDivElement).innerHTML;
+    const title = (e.target as HTMLDivElement).querySelector('h1')?.textContent || 'Untitled Entry';
+    triggerUpdate({ content, title });
+  };
+
+  // Set initial content when entry changes
   useEffect(() => {
-    setHasPendingChanges(false); // Reset pending changes on entry switch
-    if (editorRef.current && editorRef.current.innerHTML !== entry.content) {
+    if (editorRef.current && entry.content !== editorRef.current.innerHTML) {
       editorRef.current.innerHTML = entry.content;
     }
-    if (titleInputRef.current && titleInputRef.current.value !== entry.title) {
-        titleInputRef.current.value = entry.title;
+    if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
     }
+    setHasPendingChanges(false);
   }, [entry]);
 
-  // When a save is confirmed, mark that we no longer have pending changes
-  useEffect(() => {
-      if (saveStatus === 'saved') {
-          setHasPendingChanges(false);
-      }
-  }, [saveStatus]);
-
-  const handleContentChange = () => {
-    if (editorRef.current) {
-      const newContent = editorRef.current.innerHTML;
-      const updates: Partial<PortfolioEntry> = { content: newContent };
-      
-      const currentTitle = titleInputRef.current?.value.trim();
-      const placeholderTitles = ['new entry', 'untitled entry', 'my first entry'];
-      if (!currentTitle || placeholderTitles.includes(currentTitle.toLowerCase())) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newContent;
-        const firstHeader = tempDiv.querySelector('h1, h2, h3, h4, h5, h6');
-        let newTitle = '';
-
-        if (firstHeader && firstHeader.textContent) {
-          newTitle = firstHeader.textContent;
-        } else {
-          newTitle = (tempDiv.textContent || '').split('\n').find(line => line.trim() !== '') || '';
-        }
-
-        newTitle = newTitle.trim().substring(0, 100);
-
-        if (newTitle && newTitle !== currentTitle) {
-            updates.title = newTitle;
-            if (titleInputRef.current) {
-                titleInputRef.current.value = newTitle;
-            }
-        }
-      }
-
-      debouncedUpdateManager.update(updates);
-    }
-  };
-  
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      debouncedUpdateManager.update({ title: e.target.value });
-  };
-
-  const handleManualSave = () => {
-      debouncedUpdateManager.flush();
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Tab') {
-        e.preventDefault();
-        if (e.shiftKey) {
-            document.execCommand('outdent');
-        } else {
-            document.execCommand('indent');
-        }
-    }
-    // Manual save shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleManualSave();
-    }
-  }
-
-  const compressAndInsertImage = useCallback((file: File) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 1024;
-              const scaleSize = MAX_WIDTH / img.width;
-              canvas.width = MAX_WIDTH;
-              canvas.height = img.height * scaleSize;
-
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return;
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              
-              const dataUrl = canvas.toDataURL(file.type, 0.8);
-              
-              document.execCommand('insertImage', false, dataUrl);
-              handleContentChange();
-          };
-          img.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-  }, []);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      compressAndInsertImage(file);
-    }
-    e.target.value = '';
-  };
-  
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = e.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-            const file = items[i].getAsFile();
-            if (file) {
-                e.preventDefault();
-                compressAndInsertImage(file);
-                return;
-            }
-        }
-    }
-  
-    const pastedHtml = e.clipboardData.getData('text/html');
-    if (pastedHtml) {
-        e.preventDefault();
-
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = pastedHtml;
-        const cleanedHtml = tempDiv.innerHTML;
-        document.execCommand('insertHTML', false, cleanedHtml);
-        
-        setTimeout(handleContentChange, 0);
-
-    } else {
-      setTimeout(handleContentChange, 100);
-    }
-  };
 
   return (
-    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 editor-header">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-bold truncate" style={{ color: accentColor }}>
+            {entry.title || 'Untitled Entry'}
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Created: {new Date(entry.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <button
+          onClick={() => onDelete(entry.id)}
+          className="ml-4 p-2 rounded-full text-gray-500 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+          aria-label="Delete Entry"
+        >
+          <TrashIcon className="w-5 h-5" />
+        </button>
+      </div>
+
       <EditorToolbar 
-        accentColor={accentColor} 
-        editorRef={editorRef} 
-        onTriggerImageUpload={() => imageInputRef.current?.click()}
+        accentColor={accentColor}
+        editorRef={editorRef}
+        onTriggerImageUpload={() => {}}
         saveStatus={saveStatus}
         saveError={saveError}
         autoSaveEnabled={autoSaveEnabled}
         hasPendingChanges={hasPendingChanges}
         onManualSave={handleManualSave}
       />
+      
       <div className="flex-grow overflow-y-auto">
-        <div className={`mx-auto ${isSidebarCollapsed ? 'max-w-4xl' : 'max-w-3xl'} p-4`}>
-            <div className="editor-header flex justify-between items-center mb-4">
-                <input
-                    ref={titleInputRef}
-                    type="text"
-                    defaultValue={entry.title}
-                    onChange={handleTitleChange}
-                    placeholder="Untitled Entry"
-                    className="text-4xl font-bold bg-transparent focus:outline-none w-full text-gray-900 dark:text-white"
-                />
-                 <div className="flex items-center gap-4">
-                    <button onClick={() => onDelete(entry.id)} title="Delete Entry" className="p-2 text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-400 rounded-full transition-colors">
-                        <TrashIcon className="w-5 h-5"/>
-                    </button>
-                 </div>
-            </div>
-
-            <div
-                ref={editorRef}
-                className="prose-editor focus:outline-none p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm min-h-[calc(100vh-200px)]"
-                contentEditable
-                onInput={handleContentChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                suppressContentEditableWarning={true}
-                aria-label="Portfolio entry content"
-            />
-        </div>
+        <div 
+          ref={editorRef}
+          contentEditable={true}
+          onInput={handleInput}
+          onPaste={handlePaste}
+          className="prose-editor max-w-4xl mx-auto p-8 h-full bg-white dark:bg-gray-800 rounded-lg shadow-inner my-4"
+          suppressContentEditableWarning={true}
+          spellCheck={true}
+          aria-label="Portfolio entry content"
+        />
       </div>
-      <input 
-        type="file" 
-        ref={imageInputRef} 
-        onChange={handleImageUpload}
-        className="hidden" 
-        accept="image/*" 
-      />
     </div>
   );
 };

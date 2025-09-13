@@ -4,22 +4,23 @@ import { GoogleGenAI } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 /**
- * Sends text to the Gemini API for proofreading.
- * @param text The text to be proofread.
- * @returns The proofread text.
+ * Sends HTML content to the Gemini API for proofreading.
+ * The model is instructed to correct spelling and grammar while preserving HTML tags.
+ * @param htmlContent The HTML content string to be proofread.
+ * @returns The proofread HTML content.
  */
-export async function proofreadText(text: string): Promise<string> {
-  if (!text.trim()) {
-    return text;
+export async function proofreadText(htmlContent: string): Promise<string> {
+  if (!htmlContent.trim()) {
+    return htmlContent;
   }
 
   try {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: `Proofread the following text for any spelling and grammar errors. Return only the corrected text, without any introductory phrases like "Here is the corrected text:". The user's text is: "${text}"`,
+        contents: `You are an expert proofreader. The user will provide you with a block of HTML content from a rich text editor. Your task is to correct any spelling and grammar mistakes within the text nodes of the HTML. You must preserve all HTML tags and their attributes exactly as they are. Only modify the text content. Return the full, corrected HTML block.\n\nUser's HTML:\n${htmlContent}`,
         config: {
             // Use a lower temperature for more deterministic, focused corrections
-            temperature: 0.2,
+            temperature: 0.3,
         }
     });
     return response.text;
