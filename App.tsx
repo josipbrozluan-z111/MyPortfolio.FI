@@ -218,7 +218,6 @@ const App: React.FC = () => {
             entries: [],
         };
         setPortfolioData(currentData => ({
-            ...currentData!,
             topics: [newTopic, ...(currentData?.topics || [])],
         }));
     }
@@ -229,18 +228,18 @@ const App: React.FC = () => {
     if (!topicToDelete) return;
     
     if (window.confirm(`Are you sure you want to delete the topic "${topicToDelete.name}" and all its entries?`)) {
-        const newTopics = portfolioData!.topics.filter(t => t.id !== topicId);
-        
-        const activeEntryWasInDeletedTopic = topicToDelete.entries.some(e => e.id === activeEntryId);
+        setPortfolioData(currentData => {
+            if (!currentData) return currentData;
+            
+            const newTopics = currentData.topics.filter(t => t.id !== topicId);
+            const activeEntryWasInDeletedTopic = topicToDelete.entries.some(e => e.id === activeEntryId);
 
-        setPortfolioData({
-            ...portfolioData!,
-            topics: newTopics,
+            if (activeEntryWasInDeletedTopic) {
+                setActiveEntryId(newTopics[0]?.entries[0]?.id || null);
+            }
+
+            return { topics: newTopics };
         });
-
-        if (activeEntryWasInDeletedTopic) {
-            setActiveEntryId(newTopics[0]?.entries[0]?.id || null);
-        }
     }
   };
 
@@ -253,49 +252,52 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
     setPortfolioData(currentData => {
-        const newTopics = currentData!.topics.map(topic => {
+        if (!currentData) return currentData;
+
+        const newTopics = currentData.topics.map(topic => {
             if (topic.id === topicId) {
                 return { ...topic, entries: [newEntry, ...topic.entries] };
             }
             return topic;
         });
-        return {
-          ...currentData!,
-          topics: newTopics,
-        };
+
+        return { topics: newTopics };
     });
     setActiveEntryId(newEntry.id);
   };
 
   const handleDeleteEntry = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
-      const newTopics = portfolioData!.topics.map(topic => {
-        const updatedEntries = topic.entries.filter(entry => entry.id !== id);
-        return { ...topic, entries: updatedEntries };
-      });
+      setPortfolioData(currentData => {
+        if (!currentData) return currentData;
+        
+        const newTopics = currentData.topics.map(topic => ({
+          ...topic,
+          entries: topic.entries.filter(entry => entry.id !== id)
+        }));
 
-      setPortfolioData({
-        ...portfolioData!,
-        topics: newTopics,
-      });
+        if (activeEntryId === id) {
+          const firstEntry = newTopics.flatMap(t => t.entries)[0];
+          setActiveEntryId(firstEntry?.id || null);
+        }
 
-      if (activeEntryId === id) {
-        const firstEntry = newTopics.flatMap(t => t.entries)[0];
-        setActiveEntryId(firstEntry?.id || null);
-      }
+        return { topics: newTopics };
+      });
     }
   };
 
   const handleUpdateEntry = useCallback((id: string, updates: Partial<PortfolioEntry>) => {
     setPortfolioData(currentData => {
         if (!currentData) return null;
+
         const newTopics = currentData.topics.map(topic => ({
           ...topic,
           entries: topic.entries.map(entry =>
             entry.id === id ? { ...entry, ...updates } : entry
           )
         }));
-        return { ...currentData, topics: newTopics };
+
+        return { topics: newTopics };
     });
   }, []);
 
