@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Topic, PortfolioEntry } from '../types';
-import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon, HomeIcon } from './Icons';
 
 interface SidebarProps {
   topics: Topic[];
@@ -27,6 +27,42 @@ const ACCENT_COLORS = [
     '#06b6d4', // cyan-600
 ];
 
+interface EntryListItemProps {
+  entry: PortfolioEntry;
+  topicName?: string;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+const EntryListItem: React.FC<EntryListItemProps> = ({ entry, topicName, isActive, onSelect, onDelete }) => (
+    <div
+        onClick={() => onSelect(entry.id)}
+        className={`group flex justify-between items-center p-2.5 pl-3 rounded-md cursor-pointer transition-colors ${
+            isActive
+            ? 'bg-black/10 dark:bg-white/5'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-gray-700/50'
+        }`}
+    >
+        <div className="flex-1 truncate">
+            <p className={`font-semibold text-sm truncate ${isActive ? 'accent-text' : ''}`}>{entry.title || 'Untitled Entry'}</p>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+                {topicName && (
+                     <span className="px-1.5 py-0.5 bg-gray-300/50 dark:bg-gray-600/50 rounded text-gray-600 dark:text-gray-300 text-[10px] font-medium truncate">{topicName}</span>
+                )}
+            </div>
+        </div>
+        <button
+            onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
+            className="ml-2 p-1 rounded-full text-gray-400 hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="Delete entry"
+        >
+            <TrashIcon className="w-4 h-4" />
+        </button>
+    </div>
+);
+
 const Sidebar: React.FC<SidebarProps> = ({
   topics,
   activeEntryId,
@@ -44,7 +80,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [isHomeViewExpanded, setIsHomeViewExpanded] = useState(true);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  const allEntriesWithTopic = topics.flatMap(topic => 
+    topic.entries.map(entry => ({ ...entry, topicName: topic.name }))
+  );
 
   useEffect(() => {
     // Populate expanded topics on initial load
@@ -112,6 +153,39 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {!isCollapsed ? (
         <div className="flex-grow p-2 overflow-y-auto">
+            {/* Home View Section */}
+            <div
+                onClick={() => setIsHomeViewExpanded(!isHomeViewExpanded)}
+                className="group flex justify-between items-center p-2 rounded-md cursor-pointer hover:bg-black/5 dark:hover:bg-gray-700/50 transition-colors mb-2"
+            >
+                <div className="flex items-center gap-2 flex-1 truncate">
+                    <HomeIcon className="w-5 h-5 accent-text flex-shrink-0" />
+                    <span className="font-semibold text-sm text-gray-700 dark:text-gray-200 truncate">Home</span>
+                </div>
+                <ChevronDownIcon className={`w-5 h-5 text-gray-400 transform transition-transform ${isHomeViewExpanded ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isHomeViewExpanded && (
+                <div className="pl-4 pt-1 mb-2 space-y-1 border-l-2 border-gray-300 dark:border-gray-700 ml-2">
+                    {allEntriesWithTopic.length > 0 ? (
+                        allEntriesWithTopic.map((entry) => (
+                          <EntryListItem
+                            key={entry.id}
+                            entry={entry}
+                            topicName={entry.topicName}
+                            isActive={activeEntryId === entry.id}
+                            onSelect={onSelectEntry}
+                            onDelete={onDeleteEntry}
+                          />
+                        ))
+                    ) : (
+                        <div className="p-2.5 pl-3 text-sm text-gray-500 dark:text-gray-400">No entries yet.</div>
+                    )}
+                </div>
+            )}
+
+            <div className="h-px bg-gray-300/50 dark:bg-gray-700/50 my-2"></div>
+
             <button
             onClick={onCreateTopic}
             className="w-full flex items-center justify-center gap-2 mb-2 px-4 py-2 text-sm font-medium text-white accent-bg accent-bg-hover rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 ring-accent transition-all"
@@ -152,27 +226,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {expandedTopics.has(topic.id) && (
                     <div className="pl-4 pt-1 space-y-1 border-l-2 border-gray-300 dark:border-gray-700 ml-2">
                         {topic.entries.map((entry) => (
-                            <div
-                            key={entry.id}
-                            onClick={() => onSelectEntry(entry.id)}
-                            className={`group flex justify-between items-center p-2.5 pl-3 rounded-md cursor-pointer transition-colors ${
-                                activeEntryId === entry.id
-                                ? 'bg-black/10 dark:bg-white/5'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-gray-700/50'
-                            }`}
-                            >
-                                <div className="flex-1 truncate">
-                                    <p className={`font-semibold text-sm truncate ${activeEntryId === entry.id ? 'accent-text' : ''}`}>{entry.title || 'Untitled Entry'}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{new Date(entry.createdAt).toLocaleDateString()}</p>
-                                </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry.id); }}
-                                    className="ml-2 p-1 rounded-full text-gray-400 hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label="Delete entry"
-                                >
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
-                            </div>
+                            <EntryListItem
+                                key={entry.id}
+                                entry={entry}
+                                isActive={activeEntryId === entry.id}
+                                onSelect={onSelectEntry}
+                                onDelete={onDeleteEntry}
+                            />
                         ))}
                     </div>
                 )}
