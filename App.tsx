@@ -218,7 +218,7 @@ const App: React.FC = () => {
             entries: [],
         };
         setPortfolioData(currentData => ({
-            topics: [newTopic, ...(currentData?.topics || [])],
+            topics: [...(currentData?.topics || []), newTopic],
         }));
     }
   };
@@ -256,7 +256,7 @@ const App: React.FC = () => {
 
         const newTopics = currentData.topics.map(topic => {
             if (topic.id === topicId) {
-                return { ...topic, entries: [newEntry, ...topic.entries] };
+                return { ...topic, entries: [...topic.entries, newEntry] };
             }
             return topic;
         });
@@ -271,14 +271,22 @@ const App: React.FC = () => {
       setPortfolioData(currentData => {
         if (!currentData) return currentData;
         
+        const allEntries = currentData.topics.flatMap(t => t.entries);
+        const deletedIndex = allEntries.findIndex(e => e.id === id);
+
         const newTopics = currentData.topics.map(topic => ({
           ...topic,
           entries: topic.entries.filter(entry => entry.id !== id)
         }));
 
         if (activeEntryId === id) {
-          const firstEntry = newTopics.flatMap(t => t.entries)[0];
-          setActiveEntryId(firstEntry?.id || null);
+          const newAllEntries = newTopics.flatMap(t => t.entries);
+          let newActiveId: string | null = null;
+          if (newAllEntries.length > 0) {
+              const newIndex = Math.min(deletedIndex, newAllEntries.length - 1);
+              newActiveId = newAllEntries[newIndex]?.id || null;
+          }
+          setActiveEntryId(newActiveId);
         }
 
         return { topics: newTopics };
