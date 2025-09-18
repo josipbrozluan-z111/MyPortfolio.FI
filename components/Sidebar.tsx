@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Topic, PortfolioEntry } from '../types';
-import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { Topic, PortfolioEntry, GoogleDriveUser } from '../types';
+import { PlusIcon, TrashIcon, DownloadIcon, UploadIcon, BookOpenIcon, CogIcon, FolderIcon, ChevronDownIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon, GoogleIcon, SpinnerIcon, CheckCircleIcon, ExclamationCircleIcon } from './Icons';
+
+type DriveStatus = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  message: string;
+};
 
 interface SidebarProps {
   topics: Topic[];
@@ -9,6 +14,10 @@ interface SidebarProps {
   isCollapsed: boolean;
   autoSaveEnabled: boolean;
   autoSaveInterval: number;
+  isGapiReady: boolean;
+  isSignedIn: boolean;
+  driveUser: GoogleDriveUser | null;
+  driveStatus: DriveStatus;
   onSelectEntry: (id: string) => void;
   onCreateTopic: () => void;
   onCreateEntry: (topicId: string) => void;
@@ -20,6 +29,10 @@ interface SidebarProps {
   onToggleSidebar: () => void;
   onSetAutoSaveEnabled: (enabled: boolean) => void;
   onSetAutoSaveInterval: (interval: number) => void;
+  onDriveSignIn: () => void;
+  onDriveSignOut: () => void;
+  onSaveToDrive: () => void;
+  onLoadFromDrive: () => void;
 }
 
 const ACCENT_COLORS = [
@@ -90,6 +103,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   autoSaveEnabled,
   autoSaveInterval,
+  isGapiReady,
+  isSignedIn,
+  driveUser,
+  driveStatus,
   onSelectEntry,
   onCreateTopic,
   onCreateEntry,
@@ -101,6 +118,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar,
   onSetAutoSaveEnabled,
   onSetAutoSaveInterval,
+  onDriveSignIn,
+  onDriveSignOut,
+  onSaveToDrive,
+  onLoadFromDrive,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
@@ -148,6 +169,34 @@ const Sidebar: React.FC<SidebarProps> = ({
         setSettingsOpen(false);
     }
   }, [isCollapsed]);
+
+  const DriveStatusIndicator = () => {
+    if (driveStatus.status === 'idle') return null;
+    
+    let icon;
+    let colorClass;
+    switch (driveStatus.status) {
+      case 'loading':
+        icon = <SpinnerIcon className="w-4 h-4 animate-spin" />;
+        colorClass = "text-gray-600 dark:text-gray-300";
+        break;
+      case 'success':
+        icon = <CheckCircleIcon className="w-4 h-4" />;
+        colorClass = "text-green-600 dark:text-green-400";
+        break;
+      case 'error':
+        icon = <ExclamationCircleIcon className="w-4 h-4" />;
+        colorClass = "text-red-500 dark:text-red-400";
+        break;
+    }
+    
+    return (
+        <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded-md ${colorClass} bg-gray-300/50 dark:bg-gray-900/50`}>
+            {icon}
+            <span className="flex-1 truncate" title={driveStatus.message}>{driveStatus.message}</span>
+        </div>
+    );
+  };
 
   return (
     <div className={`sidebar ${isCollapsed ? 'w-16' : 'w-1/4 max-w-sm'} bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-300/50 dark:border-gray-700/50 flex flex-col h-full transition-all duration-300 ease-in-out`}>
@@ -236,6 +285,44 @@ const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && settingsOpen && (
               <div className="absolute bottom-full left-4 right-4 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-md shadow-lg border border-gray-300/50 dark:border-gray-600/50 text-sm text-gray-800 dark:text-white">
                   <div className="p-2 space-y-4">
+                      {/* Google Drive Section */}
+                      <div>
+                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">GOOGLE DRIVE SYNC</div>
+                        {!isSignedIn ? (
+                            <>
+                                <button
+                                    onClick={onDriveSignIn}
+                                    disabled={!isGapiReady || driveStatus.status === 'loading'}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                    <GoogleIcon className="w-4 h-4" />
+                                    Connect to Google Drive
+                                </button>
+                            </>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-black/5 dark:bg-white/5">
+                                    <img src={driveUser?.picture} alt="User" className="w-8 h-8 rounded-full" />
+                                    <div className="flex-1 truncate">
+                                        <p className="font-semibold truncate text-xs">{driveUser?.name}</p>
+                                        <p className="text-gray-500 dark:text-gray-400 truncate text-xs">{driveUser?.email}</p>
+                                    </div>
+                                    <button onClick={onDriveSignOut} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Sign out</button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => { onSaveToDrive(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
+                                        <UploadIcon className="w-5 h-5" /> Save
+                                    </button>
+                                    <button onClick={() => { onLoadFromDrive(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
+                                        <DownloadIcon className="w-5 h-5" /> Load
+                                    </button>
+                                </div>
+                                <DriveStatusIndicator />
+                            </div>
+                        )}
+                      </div>
+                      <div className="border-t border-gray-300/50 dark:border-gray-600/50"></div>
+
                       <div>
                         <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">ACCENT COLOR</div>
                         <div className="grid grid-cols-6 gap-2">

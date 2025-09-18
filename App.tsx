@@ -3,11 +3,16 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import WelcomePage from './components/WelcomePage';
 import EmptyState from './components/EmptyState';
-import { PortfolioData, PortfolioEntry, Topic } from './types';
+import { PortfolioData, PortfolioEntry, Topic, GoogleDriveUser } from './types';
 import { BookOpenIcon } from './components/Icons';
-import { loadPortfolioData, savePortfolioData, clearOldLocalStorageData } from './services/storageService';
+import { loadPortfolioData, savePortfolioData } from './services/storageService';
+import { initGoogleClient, signIn, signOut, savePortfolioToDrive, loadPortfolioFromDrive } from './services/googleDriveService';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type DriveStatus = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  message: string;
+};
 
 const App: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
@@ -20,6 +25,13 @@ const App: React.FC = () => {
   });
   const importInputRef = useRef<HTMLInputElement>(null);
   const saveStatusTimeoutRef = useRef<number | undefined>(undefined);
+  const driveStatusTimeoutRef = useRef<number | undefined>(undefined);
+
+  // --- Google Drive State ---
+  const [isGapiReady, setIsGapiReady] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [driveUser, setDriveUser] = useState<GoogleDriveUser | null>(null);
+  const [driveStatus, setDriveStatus] = useState<DriveStatus>({ status: 'idle', message: '' });
 
   // --- Auto-save Settings ---
   const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
@@ -104,6 +116,7 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
+        await initGoogleClient(() => setIsGapiReady(true));
         const data = await loadPortfolioData();
         if (data) {
           processLoadedData(data);
@@ -145,6 +158,68 @@ const App: React.FC = () => {
         });
     }
   }, [portfolioData, isLoading]);
+
+  const setDriveStatusWithTimeout = (status: DriveStatus) => {
+    setDriveStatus(status);
+    clearTimeout(driveStatusTimeoutRef.current);
+    if(status.status === 'success' || status.status === 'error') {
+      driveStatusTimeoutRef.current = window.setTimeout(() => {
+        setDriveStatus({ status: 'idle', message: '' });
+      }, 3000);
+    }
+  };
+
+  const handleDriveSignIn = async (andThen?: 'load') => {
+    try {
+        setDriveStatusWithTimeout({ status: 'loading', message: 'Signing in...' });
+        const user = await signIn();
+        setDriveUser(user);
+        setIsSignedIn(true);
+        setDriveStatusWithTimeout({ status: 'success', message: `Signed in as ${user.name}` });
+        if(andThen === 'load') {
+            await handleLoadFromDrive();
+        }
+    } catch (error: any) {
+        console.error("Sign in failed:", error);
+        setDriveStatusWithTimeout({ status: 'error', message: `Sign in failed: ${error.message}` });
+    }
+  };
+
+  const handleDriveSignOut = () => {
+      signOut();
+      setIsSignedIn(false);
+      setDriveUser(null);
+      setDriveStatusWithTimeout({ status: 'idle', message: '' });
+  };
+
+  const handleSaveToDrive = async () => {
+    if (!portfolioData) return;
+    try {
+      setDriveStatusWithTimeout({ status: 'loading', message: 'Saving to Drive...' });
+      await savePortfolioToDrive(portfolioData);
+      setDriveStatusWithTimeout({ status: 'success', message: 'Successfully saved to Drive.' });
+    } catch (error: any) {
+      setDriveStatusWithTimeout({ status: 'error', message: error.message || 'Failed to save.' });
+    }
+  };
+
+  const handleLoadFromDrive = async () => {
+    if (!window.confirm("Loading from Google Drive will overwrite your current local data. Are you sure you want to continue?")) {
+        return;
+    }
+    try {
+        setDriveStatusWithTimeout({ status: 'loading', message: 'Loading from Drive...' });
+        const data = await loadPortfolioFromDrive();
+        if (data) {
+            processLoadedData(data);
+            setDriveStatusWithTimeout({ status: 'success', message: 'Successfully loaded from Drive.' });
+        } else {
+            setDriveStatusWithTimeout({ status: 'error', message: 'No portfolio file found in Drive.' });
+        }
+    } catch (error: any) {
+        setDriveStatusWithTimeout({ status: 'error', message: error.message || 'Failed to load.' });
+    }
+  };
 
   const handleCreateNewProject = () => {
     const newEntry: PortfolioEntry = {
@@ -356,6 +431,8 @@ const App: React.FC = () => {
         <WelcomePage 
             onCreateProject={handleCreateNewProject} 
             onTriggerUpload={handleImportProject} 
+            isGapiReady={isGapiReady}
+            onTriggerDriveLoad={() => handleDriveSignIn('load')}
         />
       </>
     );
@@ -371,6 +448,10 @@ const App: React.FC = () => {
         isCollapsed={isSidebarCollapsed}
         autoSaveEnabled={autoSaveEnabled}
         autoSaveInterval={autoSaveInterval}
+        isGapiReady={isGapiReady}
+        isSignedIn={isSignedIn}
+        driveUser={driveUser}
+        driveStatus={driveStatus}
         onSelectEntry={setActiveEntryId}
         onCreateTopic={handleAddNewTopic}
         onCreateEntry={handleAddNewEntry}
@@ -382,6 +463,10 @@ const App: React.FC = () => {
         onToggleSidebar={toggleSidebar}
         onSetAutoSaveEnabled={setAutoSaveEnabled}
         onSetAutoSaveInterval={setAutoSaveInterval}
+        onDriveSignIn={() => handleDriveSignIn()}
+        onDriveSignOut={handleDriveSignOut}
+        onSaveToDrive={handleSaveToDrive}
+        onLoadFromDrive={handleLoadFromDrive}
       />
       <main className="flex-1">
         {renderMainContent()}

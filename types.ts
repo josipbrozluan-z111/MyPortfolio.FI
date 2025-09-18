@@ -16,3 +16,9 @@ export interface Topic {
 export interface PortfolioData {
   topics: Topic[];
 }
+
+export interface GoogleDriveUser {
+  name: string;
+  email: string;
+  picture: string;
+}
