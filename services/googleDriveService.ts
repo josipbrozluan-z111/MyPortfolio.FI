@@ -1,221 +1,257 @@
-import { PortfolioData } from '../types';
+import { PortfolioData, GoogleDriveUser } from '../types';
 
-// These variables are specific to your Google Cloud project.
-// Note: For production, it's recommended to load sensitive keys from an environment variable.
+// Configuration for Google APIs
 const CLIENT_ID = '54041417021-c5fe8lov2tfknpcsu4hu17h5kkkh4b7c.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAonnr61_2bC1iYaXBWodX4bSml9j4rnNc';
-const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-
-// Define FILE_NAME constant for Google Drive operations.
 const FILE_NAME = 'portfolio-data.json';
 
-// Type declarations for Google APIs loaded from scripts
+// Type declarations for Google APIs loaded from external scripts
 declare const gapi: any;
 declare const google: any;
 
-// The 'google' object is loaded from an external script, and its type is not known to TypeScript without type definitions.
+// Module-level state
 let tokenClient: any | null = null;
-
+let isAuthInitialized = false;
+let isDriveApiInitialized = false;
 
 /**
- * Waits for the Google API (gapi) and Google Identity Services (google) scripts
- * to load and be available on the window object.
- * @returns A promise that resolves when both APIs are ready.
+ * PHASE 1: Initializes the Google Identity Services (GIS) client for authentication.
+ * This is called on application startup. It's lightweight and only handles the sign-in process.
  */
-function waitForGoogleApis(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const interval = 100; // ms
-        const timeout = 10000; // 10 seconds
-        let elapsed = 0;
+export function initGoogleAuth(): Promise<void> {
+    if (isAuthInitialized) {
+        return Promise.resolve();
+    }
 
-        const check = () => {
-            // Check if both gapi and google.accounts are available.
-            if ((window as any).gapi && (window as any).google?.accounts) {
+    return new Promise<void>((resolve, reject) => {
+        const gsiScript = document.createElement('script');
+        gsiScript.src = 'https://accounts.google.com/gsi/client';
+        gsiScript.async = true;
+        gsiScript.defer = true;
+        gsiScript.onload = () => {
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: '', // Will be set dynamically in signIn.
+                });
+                isAuthInitialized = true;
                 resolve();
-            } else {
-                elapsed += interval;
-                if (elapsed >= timeout) {
-                    reject(new Error("Google API scripts failed to load in time. Check for network issues or script blockers."));
-                } else {
-                    setTimeout(check, interval);
-                }
+            } catch (err) {
+                console.error("Failed to initialize Google Identity Services token client.", err);
+                reject(new Error("Failed to initialize Google Identity Services."));
             }
         };
-        check();
+        gsiScript.onerror = () => reject(new Error("Failed to load Google script. Check network or ad blockers."));
+        document.head.appendChild(gsiScript);
     });
 }
 
-
 /**
- * Initializes the Google API client and Google Identity Services.
- * This function handles the complex initialization flow for both GAPI (for API calls)
- * and GSI (for authentication). This version is refactored to be as robust as possible.
- * @param onGapiReady Callback function to execute when GAPI is fully initialized.
+ * PHASE 2: Initializes the Google API (GAPI) client for Drive operations.
+ * This is a heavier operation and is only called on-demand when Drive access is explicitly enabled by the user.
  */
-export async function initGoogleClient(onGapiReady: () => void): Promise<void> {
-  try {
-    // 1. Ensure the base Google API scripts have loaded.
-    await waitForGoogleApis();
-
-    // 2. Load the specific 'client' library from GAPI.
-    await new Promise<void>((resolve, reject) => {
-      gapi.load('client', {
-        callback: resolve,
-        // FIX: The Error constructor was called with two arguments, but the environment's configuration for Error only supports one. Changed to concatenate the error cause into the message string.
-        onerror: (err: any) => reject(new Error('Failed to load GAPI client library. Cause: ' + JSON.stringify(err))),
-        timeout: 5000,
-        ontimeout: () => reject(new Error('Timed out loading GAPI client library.')),
-      });
-    });
-
-    // 3. Initialize the GAPI client. This is a multi-step process for robustness.
-    // First, initialize with just the API Key. This returns a non-standard "thenable".
-    await new Promise<void>((resolve, reject) => {
-        (gapi.client.init({
-            apiKey: API_KEY,
-        }) as any).then(resolve, reject);
-    });
-
-    // Second, load the specific API discovery document for Google Drive.
-    // This returns a standard Promise.
-    await gapi.client.load(DISCOVERY_DOC);
-
-    // If we get here, GAPI initialization was successful.
-    onGapiReady();
-
-    // 4. Initialize the Google Identity Services (GSI) client for authentication.
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: '', // Callback is handled dynamically by the signIn function.
-    });
-
-  } catch (error: any) {
-    console.error("A critical error occurred during Google Client initialization:", error);
-    const errorMessage = error?.result?.error?.message || error.details || error.message || JSON.stringify(error);
-    console.error("Detailed initialization error object:", errorMessage);
-  }
-}
-
-/**
- * Prompts the user to sign in and authorize the application.
- * @returns A promise that resolves with the user's profile information upon success.
- */
-export async function signIn(): Promise<{ name: string; email: string; picture: string; }> {
-  return new Promise((resolve, reject) => {
-    if (!tokenClient) {
-      return reject(new Error("Google Identity Services not initialized."));
+export function initGoogleDriveApi(): Promise<void> {
+    if (isDriveApiInitialized) {
+        return Promise.resolve();
     }
-    
-    tokenClient.callback = async (resp: any) => {
-        if (resp.error) {
-            return reject(new Error(resp.error));
+
+    return new Promise<void>((resolve, reject) => {
+        const gapiScript = document.createElement('script');
+        gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.async = true;
+        gapiScript.defer = true;
+        gapiScript.onload = () => {
+            gapi.load('client', {
+                callback: () => {
+                    gapi.client.init({
+                        apiKey: API_KEY,
+                        discoveryDocs: [DISCOVERY_DOC],
+                    }).then(() => {
+                        isDriveApiInitialized = true;
+                        resolve();
+                    }, (error: any) => {
+                        console.error("Error during gapi.client.init:", error);
+                        const message = error.result?.error?.message || error.details || 'API discovery response missing required fields.';
+                        reject(new Error(message));
+                    });
+                },
+                onerror: () => reject(new Error("Failed to load the GAPI client library.")),
+                timeout: 10000,
+                ontimeout: () => reject(new Error("Timeout while loading GAPI client library."))
+            });
+        };
+        gapiScript.onerror = () => reject(new Error("Failed to load GAPI script (api.js)."));
+        document.head.appendChild(gapiScript);
+    });
+}
+
+/**
+ * Prompts the user to sign in and fetches their profile. Decoupled from GAPI initialization.
+ */
+export function signIn(): Promise<GoogleDriveUser> {
+    return new Promise((resolve, reject) => {
+        if (!tokenClient) {
+            return reject(new Error("Google auth client is not initialized."));
         }
+
+        tokenClient.callback = async (response: any) => {
+            if (response.error) {
+                return reject(new Error(`Sign-in failed: ${response.error}.`));
+            }
+            if (!response.access_token) {
+                return reject(new Error("Sign-in failed: No access token received."));
+            }
+
+            sessionStorage.setItem('gdrive_token', response.access_token);
+
+            try {
+                const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { 'Authorization': `Bearer ${response.access_token}` }
+                });
+                if (!userInfoResponse.ok) {
+                    throw new Error('Failed to fetch user info from Google.');
+                }
+                const profile = await userInfoResponse.json();
+                resolve({
+                    name: profile.name,
+                    email: profile.email,
+                    picture: profile.picture,
+                });
+            } catch (err: any) {
+                console.error("Failed to fetch user profile:", err);
+                reject(new Error(`Could not fetch user profile: ${err.message}`));
+            }
+        };
 
         try {
-            const profileResponse = await gapi.client.request({
-                path: 'https://www.googleapis.com/oauth2/v3/userinfo'
-            });
-            const profile = JSON.parse(profileResponse.body);
-            resolve({
-                name: profile.name,
-                email: profile.email,
-                picture: profile.picture
-            });
-        } catch (err: any) {
-            reject(new Error(`Failed to fetch user profile: ${err.message}`));
+            tokenClient.requestAccessToken({ prompt: '' });
+        } catch (error) {
+            reject(new Error("Failed to request access token. Popups may be blocked."));
         }
-    };
-
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-  });
+    });
 }
 
-/**
- * Signs the user out of the application.
- */
+/** Signs the user out. */
 export function signOut(): void {
-  const token = gapi.client.getToken();
-  if (token !== null) {
-    google.accounts.oauth2.revoke(token.access_token, () => {});
-    gapi.client.setToken(null);
-  }
+    const token = sessionStorage.getItem('gdrive_token');
+    if (token && typeof google !== 'undefined' && google.accounts) {
+        google.accounts.oauth2.revoke(token, () => {});
+    }
+    sessionStorage.removeItem('gdrive_token');
+    if (typeof gapi !== 'undefined' && gapi.client) {
+        gapi.client.setToken(null);
+    }
 }
 
 /**
- * Finds the portfolio data file in the appDataFolder.
- * @returns The file ID if found, otherwise null.
+ * Checks for a token in sessionStorage and validates it to restore a session.
+ * @returns The user object if the session is restored, otherwise null.
  */
+export async function restoreSignIn(): Promise<GoogleDriveUser | null> {
+    const token = sessionStorage.getItem('gdrive_token');
+    if (!token) {
+        return null;
+    }
+
+    try {
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!userInfoResponse.ok) {
+            // Token is likely expired or invalid
+            throw new Error('Invalid token');
+        }
+
+        const profile = await userInfoResponse.json();
+        return {
+            name: profile.name,
+            email: profile.email,
+            picture: profile.picture,
+        };
+    } catch (err) {
+        console.warn("Failed to restore sign-in with existing token:", err);
+        signOut(); // Clean up the bad token
+        return null;
+    }
+}
+
+
+/** Helper to ensure GAPI is loaded and has the auth token set before making a Drive request. */
+async function ensureDriveApiReady(): Promise<void> {
+    if (!isDriveApiInitialized) {
+        throw new Error("Google Drive is not initialized. Please enable Drive sync first.");
+    }
+    const token = sessionStorage.getItem('gdrive_token');
+    if (!token) {
+        throw new Error("User is not signed in or the session has expired.");
+    }
+    gapi.client.setToken({ access_token: token });
+}
+
+/** Finds the portfolio file in the 'appDataFolder' to get its ID. */
 async function findPortfolioFileId(): Promise<string | null> {
+    await ensureDriveApiReady();
     try {
         const response = await gapi.client.drive.files.list({
             spaces: 'appDataFolder',
             fields: 'files(id, name)',
-            pageSize: 10
+            q: `name='${FILE_NAME}'`,
         });
-
-        const file = response.result.files.find((f: any) => f.name === FILE_NAME);
-        return file ? file.id : null;
-    } catch (error: any) {
-        console.error("Error listing files:", error);
-        throw new Error("Could not search for files in Google Drive.");
+        const file = response.result.files?.[0];
+        return file?.id || null;
+    } catch (err: any) {
+        console.error("Error finding portfolio file:", err);
+        throw new Error(`Could not search for file: ${err.result?.error?.message || err.message}`);
     }
 }
 
-/**
- * Saves the portfolio data to a file in the user's Google Drive appDataFolder.
- * Creates the file if it doesn't exist, otherwise updates it.
- * @param portfolioData The portfolio data to save.
- */
+/** Saves the portfolio data to Google Drive. */
 export async function savePortfolioToDrive(portfolioData: PortfolioData): Promise<void> {
+    await ensureDriveApiReady();
     const fileId = await findPortfolioFileId();
-    const content = JSON.stringify(portfolioData, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
+    const content = JSON.stringify(portfolioData);
 
-    const metadata = {
-        name: FILE_NAME,
-        mimeType: 'application/json',
-        ...(fileId ? {} : { parents: ['appDataFolder'] }),
-    };
+    const boundary = '-------314159265358979323846';
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const close_delim = `\r\n--${boundary}--`;
+    const metadata = fileId ? {} : { name: FILE_NAME, mimeType: 'application/json', parents: ['appDataFolder'] };
 
-    const formData = new FormData();
-    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    formData.append('file', blob);
+    const multipartRequestBody =
+        delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) +
+        delimiter + 'Content-Type: application/json\r\n\r\n' + content + close_delim;
 
-    const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files${fileId ? `/${fileId}` : ''}?uploadType=multipart`;
+    const path = `/upload/drive/v3/files${fileId ? `/${fileId}` : ''}?uploadType=multipart`;
     const method = fileId ? 'PATCH' : 'POST';
 
     try {
         await gapi.client.request({
-            path: uploadUrl,
-            method: method,
-            body: formData,
+            'path': path, 'method': method,
+            'headers': { 'Content-Type': `multipart/related; boundary="${boundary}"` },
+            'body': multipartRequestBody
         });
-    } catch (error: any) {
-        console.error("Error saving to Drive:", error);
-        throw new Error("Failed to save data to Google Drive.");
+    } catch (err: any) {
+        console.error("Error saving to Drive:", err);
+        throw new Error(`Save failed: ${err.result?.error?.message || err.message}`);
     }
 }
 
-/**
- * Loads portfolio data from the file in the user's Google Drive appDataFolder.
- * @returns The parsed portfolio data, or null if the file doesn't exist.
- */
+/** Loads the portfolio data from the file in Google Drive. */
 export async function loadPortfolioFromDrive(): Promise<PortfolioData | null> {
+    await ensureDriveApiReady();
     const fileId = await findPortfolioFileId();
     if (!fileId) {
         return null;
     }
 
     try {
-        const response = await gapi.client.drive.files.get({
-            fileId: fileId,
-            alt: 'media'
-        });
-        return JSON.parse(response.body) as PortfolioData;
-    } catch (error: any) {
-        console.error("Error loading from Drive:", error);
-        throw new Error("Failed to load data from Google Drive.");
+        const response = await gapi.client.drive.files.get({ fileId, alt: 'media' });
+        return typeof response.body === 'string' ? JSON.parse(response.body) : response.body;
+    } catch (err: any) {
+        console.error("Error loading from Drive:", err);
+        throw new Error(`Load failed: ${err.result?.error?.message || err.message}`);
     }
 }

@@ -14,10 +14,12 @@ interface SidebarProps {
   isCollapsed: boolean;
   autoSaveEnabled: boolean;
   autoSaveInterval: number;
-  isGapiReady: boolean;
+  isAuthReady: boolean;
+  isDriveApiReady: boolean;
   isSignedIn: boolean;
   driveUser: GoogleDriveUser | null;
   driveStatus: DriveStatus;
+  isDriveSyncEnabled: boolean;
   onSelectEntry: (id: string) => void;
   onCreateTopic: () => void;
   onCreateEntry: (topicId: string) => void;
@@ -33,6 +35,7 @@ interface SidebarProps {
   onDriveSignOut: () => void;
   onSaveToDrive: () => void;
   onLoadFromDrive: () => void;
+  onSetDriveSyncEnabled: (enabled: boolean) => void;
 }
 
 const ACCENT_COLORS = [
@@ -76,9 +79,10 @@ const EntryListItem: React.FC<EntryListItemProps> = ({ entry, isActive, onSelect
     </div>
 );
 
-const ToggleSwitch: React.FC<{ checked: boolean; onChange: (checked: boolean) => void }> = ({ checked, onChange }) => (
+const ToggleSwitch: React.FC<{ checked: boolean; onChange: (checked: boolean) => void; id?: string; }> = ({ checked, onChange, id }) => (
     <button
         type="button"
+        id={id}
         className={`${
             checked ? 'accent-bg' : 'bg-gray-400 dark:bg-gray-600'
         } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ring-accent focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-200 dark:focus:ring-offset-gray-700`}
@@ -103,10 +107,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   autoSaveEnabled,
   autoSaveInterval,
-  isGapiReady,
+  isAuthReady,
+  isDriveApiReady,
   isSignedIn,
   driveUser,
   driveStatus,
+  isDriveSyncEnabled,
   onSelectEntry,
   onCreateTopic,
   onCreateEntry,
@@ -122,6 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDriveSignOut,
   onSaveToDrive,
   onLoadFromDrive,
+  onSetDriveSyncEnabled,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
@@ -292,7 +299,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <>
                                 <button
                                     onClick={onDriveSignIn}
-                                    disabled={!isGapiReady || driveStatus.status === 'loading'}
+                                    disabled={!isAuthReady || driveStatus.status === 'loading'}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-wait"
                                 >
                                     <GoogleIcon className="w-4 h-4" />
@@ -309,15 +316,28 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     </div>
                                     <button onClick={onDriveSignOut} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Sign out</button>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={() => { onSaveToDrive(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
-                                        <UploadIcon className="w-5 h-5" /> Save
-                                    </button>
-                                    <button onClick={() => { onLoadFromDrive(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
-                                        <DownloadIcon className="w-5 h-5" /> Load
-                                    </button>
+                                <div className="flex items-center justify-between pt-2">
+                                    <label htmlFor="drive-sync-toggle" className="font-medium">Enable Google Drive Sync</label>
+                                    <ToggleSwitch id="drive-sync-toggle" checked={isDriveSyncEnabled} onChange={onSetDriveSyncEnabled} />
                                 </div>
-                                <DriveStatusIndicator />
+                                {isDriveSyncEnabled && (
+                                    <div className="pt-1 space-y-2">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 px-1 pb-1">
+                                            Data is saved to a hidden app folder in your Google Drive.
+                                        </p>
+                                        <DriveStatusIndicator />
+                                        {isDriveApiReady && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button onClick={onSaveToDrive} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
+                                                    <UploadIcon className="w-5 h-5" /> Save
+                                                </button>
+                                                <button onClick={onLoadFromDrive} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-300/70 dark:hover:bg-gray-600/80 focus:outline-none transition-colors text-left" disabled={driveStatus.status === 'loading'}>
+                                                    <DownloadIcon className="w-5 h-5" /> Load
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                       </div>
@@ -342,7 +362,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">AUTO-SAVE</div>
                         <div className="flex items-center justify-between">
                             <label htmlFor="auto-save-toggle" className="font-medium">Enable Auto-save</label>
-                            <ToggleSwitch checked={autoSaveEnabled} onChange={onSetAutoSaveEnabled} />
+                            <ToggleSwitch id="auto-save-toggle" checked={autoSaveEnabled} onChange={onSetAutoSaveEnabled} />
                         </div>
                         <div className={`mt-3 ${!autoSaveEnabled ? 'opacity-50' : ''}`}>
                             <label htmlFor="auto-save-interval" className="block font-medium">

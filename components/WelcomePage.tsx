@@ -4,11 +4,11 @@ import { BookOpenIcon, PlusIcon, UploadIcon, GoogleIcon } from './Icons';
 interface WelcomePageProps {
   onCreateProject: () => void;
   onTriggerUpload: () => void;
-  isGapiReady: boolean;
-  onTriggerDriveLoad: () => void;
+  isAuthReady: boolean;
+  onGoogleStart: () => void;
 }
 
-const WelcomePage: React.FC<WelcomePageProps> = ({ onCreateProject, onTriggerUpload, isGapiReady, onTriggerDriveLoad }) => {
+const WelcomePage: React.FC<WelcomePageProps> = ({ onCreateProject, onTriggerUpload, isAuthReady, onGoogleStart }) => {
   return (
     <div className="flex items-center justify-center h-screen w-screen text-gray-800 dark:text-gray-100 font-sans">
       <div className="flex flex-col items-center justify-center text-center p-8">
@@ -43,12 +43,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onCreateProject, onTriggerUpl
                 </div>
             </div>
             <button
-                onClick={onTriggerDriveLoad}
-                disabled={!isGapiReady}
+                onClick={onGoogleStart}
+                disabled={!isAuthReady}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold rounded-md transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <GoogleIcon className="w-5 h-5" />
-                Load from Google Drive
+                Start with Google
             </button>
           </div>
         </div>
